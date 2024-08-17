@@ -24,5 +24,12 @@ hs_err_pid*
 replay_pid*
 
 # IntelliJ IDEA Project files
-/.idea
-/*.iml
+.idea
+*.iml
+
+# Gradle execs
+.gradle
+/gradle
+gradlew
+gradlew.bat
+/build
