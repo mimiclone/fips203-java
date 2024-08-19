@@ -3,6 +3,8 @@ package com.mimiclone.fips202.keccak;
 import lombok.AccessLevel;
 import lombok.Getter;
 
+import java.util.BitSet;
+
 /**
  * There are 7 permutation functions in the Keccak family.
  * <br/>
@@ -81,15 +83,28 @@ public class Keccak {
         this.permutation = permutation;
     }
 
-    int safeMod(int val) {
-        return val % 5 >= 0 ? val % 5 : val % 5 + 5;
+    int mod(int val, int base) {
+        return (val % base + base) % base;
     }
 
-    public long[][] permute(long[][] a) {
+    long convert(BitSet bits) {
+        long value = 0L;
+        for (int i = 0; i < bits.length(); ++i) {
+            value += bits.get(i) ? (1L << i) : 0L;
+        }
+        return value;
+    }
+
+    public BitSet[][] permute(BitSet[][] a) {
+
+        // TODO: Change input to a single bitset of 1600 bits and then expand it into a state space of 5x5x64
+        // At the moment we are expecting the state space to be passed in directly, which is not how FIPS202 works
 
         long[][] inputData = new long[5][5];
         for (int i = 0; i < 5; i++) {
-            System.arraycopy(a[i], 0, inputData[i], 0, 5);
+            for (int j = 0; j < 5; j++) {
+                inputData[i][j] = convert(a[i][j]);
+            }
         }
 
         System.out.println("INPUT DATA");
@@ -101,11 +116,20 @@ public class Keccak {
             System.out.println(builder.toString());
         }
 
+        // Execute the rounds
         for (int i = 0; i < permutation.n; i++) {
             inputData = round(inputData, ROUND_CONSTANTS[i]);
         }
 
-        return inputData;
+        // Convert result to array of BitSet
+        BitSet[][] outputData = new BitSet[5][5];
+        for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 5; j++) {
+                outputData[i][j] = BitSet.valueOf(new long[]{inputData[i][j]});
+            }
+        }
+
+        return outputData;
     }
 
     private void printState(String label, long[][] data) {
@@ -123,14 +147,19 @@ public class Keccak {
     public long[][] round(long[][] a, long rc) {
 
         // STEP 1 (Theta)
+
+        // First we iterate through all the sheets (2d xz arrays) and XOR together all 5 lanes
+        // The intermediate result C is an array of length 5 that has collapsed each sheet into a single lane
         long[] c = new long[5];
         for (int x = 0; x < 5; x++) {
             c[x] = a[x][0] ^ a[x][1] ^ a[x][2] ^ a[x][3] ^ a[x][4];
         }
 
+        // Next we iterate across the 5 intermediate C lanes and XOR together the lanes to their left and right
+        // (with the right lane bit shifted along the z-axis) to produce a new set of 5 intermediate D lanes
         long[] d = new long[5];
         for (int x = 0; x < 5; x++) {
-            d[x] = c[safeMod(x-1)] ^ Long.rotateLeft(c[safeMod(x+1)], 1);
+            d[x] = c[mod(x-1, 5)] ^ Long.rotateLeft(c[mod(x+1, 5)], 1);
         }
 
         for (int x = 0; x < 5; x++) {
@@ -139,31 +168,24 @@ public class Keccak {
             }
         }
 
-        printState("Theta", a);
-
         // STEP 2 (Rho) and STEP 3 (Pi)
         long[][] b = new long[5][5];
         for (int x = 0; x < 5; x++) {
             for (int y = 0; y < 5; y++) {
-                b[y][safeMod(safeMod(2*x)+safeMod(3*y))] = Long.rotateLeft(a[x][y], ROTATION_OFFSETS[x][y]);
+                b[y][mod(mod(2*x, 5)+ mod(3*y, 5), 5)]
+                        = Long.rotateLeft(a[x][y], ROTATION_OFFSETS[x][y]);
             }
         }
-
-        printState("Rho and Pi", a);
 
         // STEP 4 (Chi)
         for (int x = 0; x < 5; x++) {
             for (int y = 0; y < 5; y++) {
-                a[x][y] = b[x][y] ^ ((~b[safeMod(x+1)][y]) & b[safeMod(x+2)][y]);
+                a[x][y] = b[x][y] ^ ((~b[mod(x+1, 5)][y]) & b[mod(x+2, 5)][y]);
             }
         }
 
-        printState("Chi", a);
-
         // STEP 5 (Iota)
         a[0][0] = a[0][0] ^ rc;
-
-        printState("Iota", a);
 
         return a;
 
