@@ -26,19 +26,24 @@ public class NTTTests {
         assertNotNull(ntt);
 
         // Perform transform
-        final BigInteger[] output = ntt.transform(input);
-        assertNotNull(output);
-        assertEquals(expectedOutput.length, output.length);
+        final BigInteger[] transformOutput = ntt.transform(input);
+        assertNotNull(transformOutput);
+        assertEquals(expectedOutput.length, transformOutput.length);
 
-        // Print results
+        // Perform inverse
+        final BigInteger[] inverseTransformOutput = ntt.inverse(transformOutput);
+        assertNotNull(inverseTransformOutput);
+        assertEquals(expectedOutput.length, inverseTransformOutput.length);
+
+        // Compare individual bit results
         for (int i = 0; i < expectedOutput.length; i++) {
-            System.out.printf("%s, ", output[i].toString(16));
+            assertEquals(input[i], inverseTransformOutput[i]);
+            System.out.printf("%s", input[i].toString(16));
+            System.out.printf("%s", transformOutput[i].toString(16));
+            System.out.printf("%s", inverseTransformOutput[i].toString(16));
         }
 
     }
-
-    @Test
-    public void testMod() {}
 
     @Test
     public void testBitRev7() {

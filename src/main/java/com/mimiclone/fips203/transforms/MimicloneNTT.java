@@ -23,17 +23,6 @@ public class MimicloneNTT implements NumberTheoretic {
         return new MimicloneNTT(q);
     }
 
-    /**
-     * Operation must be performed using BigInteger since val could be up to 17^255
-     * @param val
-     * @param q
-     * @return
-     */
-    int mod(BigInteger val, int q) {
-        BigInteger bq = BigInteger.valueOf(q);
-        return val.mod(bq).add(bq).mod(bq).intValue();
-    }
-
     BigInteger bitRev7(BigInteger n) {
         BigInteger result = BigInteger.valueOf(0);
         for (int i = 0; i < 7; i++) {
@@ -43,8 +32,11 @@ public class MimicloneNTT implements NumberTheoretic {
         return result;
     }
 
-    @Override
-    public BigInteger[] transform(BigInteger[] input) {
+    BigInteger calcZeta(int i) {
+        return BigInteger.valueOf(17).modPow(bitRev7(BigInteger.valueOf(i)), q);
+    }
+
+    private void validateInput(BigInteger[] input) {
 
         // Validate input is correct length
         if (input == null || input.length != INPUT_OUTPUT_LENGTH) {
@@ -58,11 +50,36 @@ public class MimicloneNTT implements NumberTheoretic {
         if (!incorrectIndexes.isEmpty()) {
             throw new IllegalArgumentException("Input values at the following indexes were not in modulo %d: %s".formatted(q, incorrectIndexes));
         }
+    }
+
+    @Override
+    public BigInteger[] transform(BigInteger[] input) {
+
+        // Validate the input
+        validateInput(input);
 
         // Make a copy of the input to operate on
         // This variable is called f-hat in the FIPS203 spec, Algorithm 9, Line 1
         BigInteger[] result = input.clone();
 
+        final int[] zetaVals = {
+                1, 1729, 2580, 3289, 2642, 630, 1897, 848,
+                1062, 1919, 193, 797, 2786, 3260, 569, 1746,
+                296, 2447, 1339, 1476, 3046, 56, 2240, 1333,
+                1426, 2094, 535, 2882, 2393, 2879, 1974, 821,
+                289, 331, 3253, 1756, 1197, 2304, 2277, 2055,
+                650, 1977, 2513, 632, 2865, 33, 1320, 1915,
+                2319, 1435, 807, 452, 1438, 2868, 1534, 2402,
+                2647, 2617, 1481, 648, 2474, 3110, 1227, 910,
+                17, 2761, 583, 2649, 1637, 723, 2288, 1100,
+                1409, 2662, 3281, 233, 756, 2156, 3015, 3050,
+                1703, 1651, 2789, 1789, 1847, 952, 1461, 2687,
+                939, 2308, 2437, 2388, 733, 2337, 268, 641,
+                1584, 2298, 2037, 3220, 375, 2549, 2090, 1645,
+                1063, 319, 2773, 757, 2099, 561, 2466, 2594,
+                2804, 1092, 403, 1026, 1143, 2150, 2775, 886,
+                1722, 1212, 1874, 1029, 2110, 2935, 885, 2154
+        };
         final int[] lenVals = {
                 128, 64, 64, 32, 32, 32, 32, 16, 16, 16, 16, 16, 16, 16, 16, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                 8, 8, 8, 4, 4, 4, 4,4, 4, 4, 4, 4, 4, 4, 4,4, 4, 4, 4, 4, 4, 4, 4,4, 4, 4, 4,4, 4, 4, 4,4, 4, 4, 4,
@@ -87,97 +104,15 @@ public class MimicloneNTT implements NumberTheoretic {
             // Calculate zeta.
             // Must use BigInteger here because 17^128 will overflow native data types
             // Zeta itself will be bound between 0 and 3329 (q).
-            BigInteger zeta = BigInteger.valueOf(17).modPow(bitRev7(BigInteger.valueOf(i+1)), q);
+            BigInteger zeta = BigInteger.valueOf(zetaVals[i + 1]);
 
             // Core transform loop
             for (int j = start; j < start + len; j++) {
-                BigInteger t = zeta.multiply(input[j + len]).mod(q);
+                BigInteger t = zeta.multiply(result[j + len]).mod(q);
                 result[j + len] = result[j].subtract(t).mod(q);
                 result[j] = result[j].add(t).mod(q);
             }
         }
-
-//        int i = 1;
-//
-//        /*
-//        7 iterations
-//
-//        The termination condition in the spec is defined as len >= 2, but this can be
-//        simplified to len > 1 because the iteration values are 128, 64, 32, 16, 8, 4, 2, 1,
-//        and we only want 7 iterations.  The value of len is only updated in the loop counter,
-//        so it doesn't make sense that they defined it as a multistep comparison in the spec
-//        since most compilers will optimize >=2 as >1 anyway, and this will just add opcodes
-//        to implementations in interpreted languages.  This is why we shouldn't let
-//        mathematicians write programming specs.
-//        */
-//        for (int len = 128; len > 1; len /= 2) {
-//
-//            /*
-//            This is yet another very weird way to define a loop.
-//            It performs a total of 127 iterations (including the outer loop)
-//            In this case i goes from 1 ... 127 before calculating zeta, and i is not involved in calculating t of f-hat
-//            (only start and len are, and they do not change during the j loop so can be fixed)
-//            We can unroll the outer two loops with pre-calculations and replace them with a single loop based on i=1, i<128.
-//
-//            for len=128, 1 iteration
-//                0,
-//                [256]
-//            for len=64, 2 iterations
-//                0, 128,
-//                [256]
-//            for len=32, 4 iterations
-//                0, 64, 128, 192,
-//                [256]
-//            for len=16, 8 iterations
-//                0, 32, 64, 96, 128, 160, 192, 224,
-//                [256]
-//            for len=8, 16 iterations
-//                0, 16, 32, 48, 64, 80, 96, 112, 128, 144,
-//                160, 176, 192, 208, 224, 240,
-//                [256]
-//            for len=4, 32 iterations
-//                000, 008, 016, 024, 032, 040, 048, 056, 064, 072,
-//                080, 088, 096, 104, 112, 120, 128, 136, 144, 152,
-//                160, 168, 176, 184, 192, 200, 208, 216, 224, 232,
-//                240, 248,
-//                [256]
-//            for len=2, 64 iterations
-//                0, 4, 8, 12, 16, 20, 24, 28, 32, 36,
-//                40, 44, 48, 52, 56, 60, 64, 68, 72, 76,
-//                80, 84, 88, 92, 96, 100, 104, 108, 112, 116,
-//                120, 124, 128, 132, 136, 140, 144, 148, 152, 156,
-//                160, 164, 168, 172, 176, 180, 184, 188, 192, 196,
-//                200, 204, 208, 212, 216, 220, 224, 228, 232, 236,
-//                240, 244, 248, 252,
-//                [256]
-//
-//             */
-//            for (int start = 0; start < 256; start += 2 * len) {
-//
-//                // Calculate zeta.  Must use BigInteger here because 17^128 will overflow native types
-//                BigInteger zeta = BigInteger.valueOf(17).modPow(bitRev7(BigInteger.valueOf(i)), q);
-//
-//
-//                // Increment i, which is really just a counter for the total number start loop iterations
-//                // We should have looped on i and used it to index into a start value array
-//                // as well as the pre-computed bitrev7 values (of which they ignore the first one anyway).
-//                i++;
-//
-//                /*
-//                Yet another weirdly defined iteration.  Begins at start, increments by one and terminates at start + len
-//                So every time through the loop we do len iterations, but start changes the j values
-//                - start=0, 128 iters
-//                - start=0, 64 iters
-//                - start=128, 64 iters
-//                 */
-//                for (int j = start; j < start + len; j++) {
-//                    BigInteger t = zeta.multiply(input[j + len]).mod(q);
-//                    result[j + len] = result[j].subtract(t).mod(q);
-//                    result[j] = result[j].add(t).mod(q);
-//                }
-//
-//            }
-//        }
 
         // Return the resulting transform
         return result;
@@ -185,6 +120,74 @@ public class MimicloneNTT implements NumberTheoretic {
 
     @Override
     public BigInteger[] inverse(BigInteger[] input) {
-        return input.clone();
+
+        // Validate the input
+        validateInput(input);
+
+        // Make a copy of the input to operate on
+        // This variable is called f-hat in the FIPS203 spec, Algorithm 9, Line 1
+        BigInteger[] result = input.clone();
+
+        // TODO: Reverse these values to make indexing more straightforward in the algo
+        final int[] zetaVals = {
+                1, 1729, 2580, 3289, 2642, 630, 1897, 848,
+                1062, 1919, 193, 797, 2786, 3260, 569, 1746,
+                296, 2447, 1339, 1476, 3046, 56, 2240, 1333,
+                1426, 2094, 535, 2882, 2393, 2879, 1974, 821,
+                289, 331, 3253, 1756, 1197, 2304, 2277, 2055,
+                650, 1977, 2513, 632, 2865, 33, 1320, 1915,
+                2319, 1435, 807, 452, 1438, 2868, 1534, 2402,
+                2647, 2617, 1481, 648, 2474, 3110, 1227, 910,
+                17, 2761, 583, 2649, 1637, 723, 2288, 1100,
+                1409, 2662, 3281, 233, 756, 2156, 3015, 3050,
+                1703, 1651, 2789, 1789, 1847, 952, 1461, 2687,
+                939, 2308, 2437, 2388, 733, 2337, 268, 641,
+                1584, 2298, 2037, 3220, 375, 2549, 2090, 1645,
+                1063, 319, 2773, 757, 2099, 561, 2466, 2594,
+                2804, 1092, 403, 1026, 1143, 2150, 2775, 886,
+                1722, 1212, 1874, 1029, 2110, 2935, 885, 2154
+        };
+        final int[] lenVals = {
+                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4,
+                4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 16, 16, 16, 16, 16, 16, 16, 16, 32, 32, 32, 32, 64, 64, 128
+        };
+        final int[] startVals = {
+                0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96, 100,
+                104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 148, 152, 156, 160, 164, 168, 172, 176, 180, 184,
+                188, 192, 196, 200, 204, 208, 212, 216, 220, 224, 228, 232, 236, 240, 244, 248, 252, 0, 8, 16, 24, 32,
+                40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160, 168, 176, 184, 192, 200, 208,
+                216, 224, 232, 240, 248, 0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 0, 32,
+                64, 96, 128, 160, 192, 224, 0, 64, 128, 192, 0, 128, 0
+        };
+
+        for (int i = 0; i < lenVals.length; i++) {
+
+            // Retrieve pre-calculated loop values
+            int len = lenVals[i];
+            int start = startVals[i];
+
+            // Calculate zeta.
+            // Must use BigInteger here because 17^128 will overflow native data types
+            // Zeta itself will be bound between 0 and 3329 (q).
+            BigInteger zeta = BigInteger.valueOf(zetaVals[127 - i]);
+
+            // Core inverse transform loop
+            for (int j = start; j < start + len; j++) {
+                BigInteger t = result[j];
+                result[j] = t.add(result[j + len]).mod(q);
+                result[j + len] = zeta.multiply(result[j + len].subtract(t)).mod(q);
+            }
+        }
+
+        // Multiply all entries
+        for (int i = 0; i < result.length; i++) {
+            result[i] = result[i].multiply(BigInteger.valueOf(3303)).mod(q);
+        }
+
+        // Return the resulting transform
+        return result;
+
     }
 }
