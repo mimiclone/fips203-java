@@ -22,7 +22,7 @@ public class NTTTests {
         final BigInteger[] expectedOutput = new BigInteger[256];
 
         // Instantiate transformer
-        final NumberTheoretic ntt = MimicloneNTT.withModulus(BigInteger.valueOf(3329));
+        final NumberTheoretic ntt = MimicloneNTT.fips203();
         assertNotNull(ntt);
 
         // Perform transform
