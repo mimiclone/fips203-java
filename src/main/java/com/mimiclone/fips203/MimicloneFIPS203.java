@@ -48,7 +48,7 @@ public class MimicloneFIPS203 implements FIPS203 {
     public FIPS203KeyPair generateKeyPair() {
 
         // Get the secure RBG
-        SecureRandom secureRandom = null;
+        SecureRandom secureRandom;
 
         try {
 

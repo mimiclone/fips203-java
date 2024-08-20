@@ -92,7 +92,7 @@ public class MimicloneNTT implements NumberTheoretic {
         return BigInteger.valueOf(17).modPow(bitRev7(BigInteger.valueOf(i)), q);
     }
 
-    private void validateInput(BigInteger[] input) {
+    private void validateInput(int[] input) {
 
         // Validate input is correct length
         if (input == null || input.length != INPUT_OUTPUT_LENGTH) {
@@ -101,7 +101,7 @@ public class MimicloneNTT implements NumberTheoretic {
 
         // Validate input has properly bounded values in modulo q
         List<Integer> incorrectIndexes = IntStream.range(0, input.length)
-                .filter(i -> input[i].compareTo(BigInteger.ZERO) < 0 || input[i].compareTo(q) > 0)
+                .filter(i -> input[i] < 0 || input[i] > q.intValue())
                 .boxed().toList();
         if (!incorrectIndexes.isEmpty()) {
             throw new IllegalArgumentException("Input values at the following indexes were not in modulo %d: %s".formatted(q, incorrectIndexes));
@@ -109,14 +109,14 @@ public class MimicloneNTT implements NumberTheoretic {
     }
 
     @Override
-    public BigInteger[] transform(BigInteger[] input) {
+    public int[] transform(int[] input) {
 
         // Validate the input
         validateInput(input);
 
         // Make a copy of the input to operate on
         // This variable is called f-hat in the FIPS203 spec, Algorithm 9, Line 1
-        BigInteger[] result = input.clone();
+        int[] result = input.clone();
 
 
 
@@ -132,13 +132,13 @@ public class MimicloneNTT implements NumberTheoretic {
             // Retrieve pre-calculated loop values
             int len = transformLenVals[i];
             int start = transformStartVals[i];
-            BigInteger zeta = BigInteger.valueOf(transformZetaVals[i]);
+            int zeta = transformZetaVals[i];
 
             // Core transform loop
             for (int j = start; j < start + len; j++) {
-                BigInteger t = zeta.multiply(result[j + len]).mod(q);
-                result[j + len] = result[j].subtract(t).mod(q);
-                result[j] = result[j].add(t).mod(q);
+                int t = BigInteger.valueOf((long) zeta * result[j + len]).mod(q).intValue();
+                result[j + len] = BigInteger.valueOf((long)result[j] - (t)).mod(q).intValue();
+                result[j] = BigInteger.valueOf((long) result[j] + t).mod(q).intValue();
             }
         }
 
@@ -147,14 +147,14 @@ public class MimicloneNTT implements NumberTheoretic {
     }
 
     @Override
-    public BigInteger[] inverse(BigInteger[] input) {
+    public int[] inverse(int[] input) {
 
         // Validate the input
         validateInput(input);
 
         // Make a copy of the input to operate on
         // This variable is called f-hat in the FIPS203 spec, Algorithm 9, Line 1
-        BigInteger[] result = input.clone();
+        int[] result = input.clone();
 
         // NOTE: The FIPS203 spec has two outer loops that calculate {@code len} and {@code start} values that are used
         // to modify the inner loop conditions.  It also defines a manually decremented {@code i} loop counter that
@@ -168,13 +168,13 @@ public class MimicloneNTT implements NumberTheoretic {
             // Retrieve pre-calculated loop values
             int len = inverseLenVals[i];
             int start = inverseStartVals[i];
-            BigInteger zeta = BigInteger.valueOf(inverseZetaVals[i]);
+            int zeta = inverseZetaVals[i];
 
             // Core inverse transform loop
             for (int j = start; j < start + len; j++) {
-                BigInteger t = result[j];
-                result[j] = t.add(result[j + len]).mod(q);
-                result[j + len] = zeta.multiply(result[j + len].subtract(t)).mod(q);
+                int t = result[j];
+                result[j] = BigInteger.valueOf((long)t + result[j + len]).mod(q).intValue();
+                result[j + len] = BigInteger.valueOf((long) zeta * (result[j + len] - t)).mod(q).intValue();
             }
         }
 
@@ -182,7 +182,8 @@ public class MimicloneNTT implements NumberTheoretic {
         for (int i = 0; i < result.length; i++) {
 
             // NOTE: The magic number 3303 is defined in the FIPS203 spec as 128^-1 mod q.
-            result[i] = result[i].multiply(BigInteger.valueOf(3303)).mod(q);
+            result[i] = BigInteger.valueOf((long) result[i] * 3303).mod(q).intValue();
+
         }
 
         // Return the resulting transform

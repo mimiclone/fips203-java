@@ -2,8 +2,8 @@ package com.mimiclone.fips203.key;
 
 public interface FIPS203KeyPair {
 
-    EncapsulationKey getEncapsulationKey();
+    EncapsulationKey encapsulationKey();
 
-    DecapsulationKey getDecapsulationKey();
+    DecapsulationKey decapsulationKey();
 
 }

@@ -33,7 +33,7 @@ public class FIPS203Tests {
         assertNotNull(keyPair);
 
         // Get the EncapsulationKey
-        EncapsulationKey encapsulationKey = keyPair.getEncapsulationKey();
+        EncapsulationKey encapsulationKey = keyPair.encapsulationKey();
 
         // Ensure the EncapsulationKey is not null
         assertNotNull(encapsulationKey);
@@ -48,7 +48,7 @@ public class FIPS203Tests {
         assertEquals(parameterSet.getEncapsulationKeyLength(), encapsulationKeyBytes.length);
 
         // Get the DecapsulationKey
-        DecapsulationKey decapsulationKey = keyPair.getDecapsulationKey();
+        DecapsulationKey decapsulationKey = keyPair.decapsulationKey();
 
         // Ensure the DecapsulationKey is not null
         assertNotNull(decapsulationKey);

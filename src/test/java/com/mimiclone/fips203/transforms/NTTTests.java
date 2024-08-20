@@ -13,34 +13,34 @@ public class NTTTests {
     public void testInterface() {
 
         // Define expected input
-        final BigInteger[] input = new BigInteger[256];
+        final int[] input = new int[256];
         for (int i = 0; i < 256; i++) {
-            input[i] = BigInteger.ONE;
+            input[i] = 1;
         }
 
         // Define expected output
-        final BigInteger[] expectedOutput = new BigInteger[256];
+        final int[] expectedOutput = new int[256];
 
         // Instantiate transformer
         final NumberTheoretic ntt = MimicloneNTT.fips203();
         assertNotNull(ntt);
 
         // Perform transform
-        final BigInteger[] transformOutput = ntt.transform(input);
+        final int[] transformOutput = ntt.transform(input);
         assertNotNull(transformOutput);
         assertEquals(expectedOutput.length, transformOutput.length);
 
         // Perform inverse
-        final BigInteger[] inverseTransformOutput = ntt.inverse(transformOutput);
+        final int[] inverseTransformOutput = ntt.inverse(transformOutput);
         assertNotNull(inverseTransformOutput);
         assertEquals(expectedOutput.length, inverseTransformOutput.length);
 
         // Compare individual bit results
         for (int i = 0; i < expectedOutput.length; i++) {
             assertEquals(input[i], inverseTransformOutput[i]);
-            System.out.printf("%s", input[i].toString(16));
-            System.out.printf("%s", transformOutput[i].toString(16));
-            System.out.printf("%s", inverseTransformOutput[i].toString(16));
+            System.out.printf("%s", Integer.toHexString(input[i]));
+            System.out.printf("%s", Integer.toHexString(transformOutput[i]));
+            System.out.printf("%s", Integer.toHexString(inverseTransformOutput[i]));
         }
 
     }
