@@ -97,7 +97,6 @@ public class Keccak {
 
     public BitSet[][] permute(BitSet[][] a) {
 
-        // TODO: Change input to a single bitset of 1600 bits and then expand it into a state space of 5x5x64
         // At the moment we are expecting the state space to be passed in directly, which is not how FIPS202 works
 
         long[][] inputData = new long[5][5];
@@ -144,51 +143,121 @@ public class Keccak {
         System.out.println();
     }
 
-    public long[][] round(long[][] a, long rc) {
+    /**
+     * Implements Algorithm 1 (Theta Step) of the NIST FIPS 202 Standard.
+     * This version ignores the bit size as we are only implementing Keccak-f[1600] in support
+     * of the SHAKE256 algorithm needed as an XOF for FIPS 203.  We use {@code long} as the
+     * carrier for bit information since in Java this will always be a 64-bit type.
+     *
+     * @param state A 5x5 array of {@code long} values treated as 64 indexed bits.
+     * @return A reference to the modified state space after XORing with the parities of two columns.
+     */
+    long[][] theta(long[][] state) {
 
-        // STEP 1 (Theta)
+        // Allocate result state
+        long[][] statePrime = new long[5][5];
 
+        // Step 1
         // First we iterate through all the sheets (2d xz arrays) and XOR together all 5 lanes
         // The intermediate result C is an array of length 5 that has collapsed each sheet into a single lane
         long[] c = new long[5];
         for (int x = 0; x < 5; x++) {
-            c[x] = a[x][0] ^ a[x][1] ^ a[x][2] ^ a[x][3] ^ a[x][4];
+            c[x] = state[x][0] ^ state[x][1] ^ state[x][2] ^ state[x][3] ^ state[x][4];
         }
 
+        // Step 2
         // Next we iterate across the 5 intermediate C lanes and XOR together the lanes to their left and right
         // (with the right lane bit shifted along the z-axis) to produce a new set of 5 intermediate D lanes
+        // In this case the {@code rotateLeft} is the same thing as taking {@code z-1 mod w} as z index if
+        // c were composed of indexed bits rather than a long.
         long[] d = new long[5];
         for (int x = 0; x < 5; x++) {
             d[x] = c[mod(x-1, 5)] ^ Long.rotateLeft(c[mod(x+1, 5)], 1);
         }
 
+        // Step 3
+        // XOR each together each lane in a sheet of the state space with each lane of D.  The resulting
+        // state space is referred to as A prime but we do not allocate new memory for it for efficiency.
         for (int x = 0; x < 5; x++) {
             for (int y = 0; y < 5; y++) {
-                a[x][y] = a[x][y] ^ d[x];
+                statePrime[x][y] = state[x][y] ^ d[x];
             }
         }
 
-        // STEP 2 (Rho) and STEP 3 (Pi)
-        long[][] b = new long[5][5];
+        // Return the new state
+        return statePrime;
+
+    }
+
+    /**
+     * Implements Algorithm 2 (Rho Step) of the NIST FIPS 202 Standard.
+     * This version ignores the bit size as we are only implementing Keccak-f[1600] in support
+     * of the SHAKE256 algorithm needed as an XOF for FIPS 203.  We use {@code long} as the
+     * carrier for bit information since in Java this will always be a 64-bit type.
+     *
+     * Rho takes every lane except for the notionally central lane at (0,0) and shifts the
+     * bits by a pre-determined amount specified in the standard.
+     *
+     * Pi re-organized the lanes by rotating them around the central lane with some variation.
+     *
+     * These two steps are combined for efficiency.  The bit shift is pre-calculated for each
+     * lane and assignments to the modified state space perform the rotation at the same time.
+     *
+     * @param state
+     * @return
+     */
+    long[][] rhopi(long[][] state) {
+
+        // Allocate prime state
+        long[][] statePrime = new long[5][5];
+
+        // Step 1
+        // Copy the (0,0) lane of the original state into the prime state
+        statePrime[0][0] = state[0][0]; // Copy by value because this is a long
+
+        // Rotate the bits in each lane corresponding to pre-calculated values in the spec.
         for (int x = 0; x < 5; x++) {
             for (int y = 0; y < 5; y++) {
-                b[y][mod(mod(2*x, 5)+ mod(3*y, 5), 5)]
-                        = Long.rotateLeft(a[x][y], ROTATION_OFFSETS[x][y]);
+                statePrime[y][mod(2*x + 3*y, 5)]
+                        = Long.rotateLeft(state[x][y], ROTATION_OFFSETS[x][y]);
             }
         }
+
+        return statePrime;
+    }
+
+    long[][] chi(long[][] state) {
+        long[][] statePrime = new long[5][5];
+
+        for (int x = 0; x < 5; x++) {
+            for (int y = 0; y < 5; y++) {
+                statePrime[x][y] = state[x][y] ^ ((~state[mod(x+1, 5)][y]) & state[mod(x+2, 5)][y]);
+            }
+        }
+
+        return statePrime;
+    }
+
+    public long[][] round(long[][] a, long rc) {
+
+        // STEP 1 (Theta)
+        a = theta(a);
+
+        // STEP 2/3 (Rho / Pi)
+        long[][] b = rhopi(a);
 
         // STEP 4 (Chi)
-        for (int x = 0; x < 5; x++) {
-            for (int y = 0; y < 5; y++) {
-                a[x][y] = b[x][y] ^ ((~b[mod(x+1, 5)][y]) & b[mod(x+2, 5)][y]);
-            }
-        }
+        long[][] c = chi(b);
 
         // STEP 5 (Iota)
-        a[0][0] = a[0][0] ^ rc;
+        a[0][0] = c[0][0] ^ rc;
 
         return a;
 
+    }
+
+    String sponge(String message, long digestLength) {
+        return "";
     }
 
 }

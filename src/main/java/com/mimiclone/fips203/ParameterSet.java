@@ -4,8 +4,6 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.lang.reflect.Parameter;
-
 @Getter
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public enum ParameterSet {
@@ -50,23 +48,52 @@ public enum ParameterSet {
     );
 
     /**
+     * The n value is not actually part of the parameter set, it is a global variable
+     * across the entire algorithm.  However, it is useful to have it available in all
+     * the same places the parameters are used, so we set it here with no variance between
+     * enum instances.
+     */
+    private final int n = 256;
+
+    /**
+     * The q value is not actually part of the parameter set, it is a global variable
+     * across the entire algorithm.  However, it is useful to have it available in all
+     * the same places the parameters are used, so we set it here with no variance between
+     * enum instances.
+     */
+    private final int q = 3329;
+
+    /**
      * From FIPS203 Section 8:
-     * "The parameter k determines the dimensions of the matrix (A hat) that appears in
+     * The parameter k determines the dimensions of the matrix (A hat) that appears in
      * K-PKE.KeyGen and K-PKE.Encrypt.  It also determines the dimensions of vectors s
      * and e in K-PKE.KeyGen and the dimensions of vectors y and e1 in K-PKE.Encrypt.
      */
     private final int k;
 
-    private final int n1;
+    /**
+     * Specifies the distribution of vectors s and e in K-PKE.KeyGen and the vector y
+     * in K-PKE.Encrypt
+     */
+    private final int eta1;
 
-    private final int n2;
+    /**
+     * Specifies the distribution of vectors e1 and e2 in K-PKE.Encrypt
+     */
+    private final int eta2;
 
+    /**
+     * Used in the functions Compress, Decompress, ByteEncode, ByteDecode
+     */
     private final int du;
 
+    /**
+     * Used in the functions Compress, Decompress, ByteEncode, ByteDecode
+     */
     private final int dv;
 
     /**
-     * Minimum security strength for hash functions
+     * Minimum security strength for hash and XOF functions
      */
     private final int minSecurityStrength;
 

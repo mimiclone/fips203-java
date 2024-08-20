@@ -1,5 +1,7 @@
 package com.mimiclone.fips203.key.gen.impl;
 
+import com.github.aelstad.keccakj.core.KeccakSponge;
+import com.github.aelstad.keccakj.fips202.Shake256;
 import com.mimiclone.fips203.ParameterSet;
 import com.mimiclone.fips203.key.FIPS203KeyPair;
 import com.mimiclone.fips203.key.gen.FIPS203KeyGeneration;
@@ -370,7 +372,7 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
     int[] samplePolyCBD(byte[] input) {
 
         // Get information from parameter set
-        int eta = parameterSet.getN1();
+        int eta = parameterSet.getEta1();
 
         // Validate input length
         if (input == null || input.length != 64*eta) {
@@ -401,10 +403,19 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
         return result;
     }
 
+    /**
+     * Turns a 32-byte array of secrets (plus padding) into a fixed-length output of 64*ETA bytes using
+     * the SHAKE256 algorithm as a PRF (Pseudo Random Function).
+     *
+     * @param s
+     * @param b
+     * @return
+     */
     byte[] genPRFBytes(byte[] s, byte b) {
 
-        int eta = parameterSet.getN1();
+        int eta = parameterSet.getEta1();
 
+        // Add the
         byte[] sb = ByteBuffer.allocate(33)
                 .put(s).put(b)
                 .array().clone();
@@ -446,9 +457,17 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
      */
     final byte[] shake256(byte[] s, int outputLength) throws NoSuchAlgorithmException {
 
-        MessageDigest md = MessageDigest.getInstance("SHA3-256");
-        md.update(s);
-        return md.digest(new byte[outputLength]);
+        // TODO: Finish FIPS202 SHAKE256 XOF implementation
+        // System algorithm is bullshit and doesn't come with XOF functionality
+        // Temporarily using a third party library which is only conformant with the draft spec.
+
+        KeccakSponge sponge = new Shake256();
+        sponge.getAbsorbStream().write(s);
+
+        byte[] digest = new byte[outputLength];
+        sponge.getSqueezeStream().read(digest);
+
+        return digest;
 
     }
 

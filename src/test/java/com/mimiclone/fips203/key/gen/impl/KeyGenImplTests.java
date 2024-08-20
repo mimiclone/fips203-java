@@ -4,11 +4,27 @@ import com.mimiclone.fips203.ParameterSet;
 import com.mimiclone.fips203.key.FIPS203KeyPair;
 import org.junit.jupiter.api.Test;
 
+import java.security.Provider;
+import java.security.Security;
 import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class KeyGenImplTests {
+
+    @Test
+    public void testProviders() {
+
+        System.out.println("Security Providers:");
+        for (Provider provider :Security.getProviders()) {
+            for (Provider.Service service : provider.getServices()) {
+                if (service.getType().equals("Cipher")) {
+                    System.out.println(provider.getName() + ": " + service.getAlgorithm());
+                }
+            }
+
+        }
+    }
 
     @Test
     public void mlKem1024KeyGenTest() {

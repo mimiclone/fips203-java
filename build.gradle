@@ -6,6 +6,13 @@ plugins {
 group = 'com.mimiclone'
 version = '0.0.1-SNAPSHOT'
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21);
+        vendor = JvmVendorSpec.ADOPTIUM;
+    }
+}
+
 idea {
     module {
         downloadJavadoc = true
@@ -20,10 +27,12 @@ configurations {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
 dependencies {
+    implementation 'com.github.aelstad:keccakj:1.1.0'
     compileOnly 'org.projectlombok:lombok:1.18.34'
     annotationProcessor 'org.projectlombok:lombok:1.18.34'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
