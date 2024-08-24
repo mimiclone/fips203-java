@@ -1,4 +1,4 @@
-package com.mimiclone.fips203.key.gen.impl;
+package com.mimiclone.fips203.key.gen.mlkem;
 
 import com.mimiclone.fips203.ParameterSet;
 import org.junit.jupiter.api.Test;
@@ -653,7 +653,7 @@ public class KeyGenComponentTests {
         };
 
         // Create KeyGenImpl instance
-        KeyGenImpl kgi = new KeyGenImpl(ParameterSet.ML_KEM_1024);
+        MLKEMKeyPairGenerator kgi = new MLKEMKeyPairGenerator(ParameterSet.ML_KEM_1024);
 
         // Execute 12-bit byte encoding
         byte[] result = kgi.byteEncode(12, input);

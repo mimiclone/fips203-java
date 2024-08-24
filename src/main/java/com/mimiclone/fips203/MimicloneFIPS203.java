@@ -1,10 +1,15 @@
 package com.mimiclone.fips203;
 
+import com.mimiclone.fips203.decaps.Decapsulator;
+import com.mimiclone.fips203.decaps.mlkem.MLKEMDecapsulator;
+import com.mimiclone.fips203.encaps.Encapsulator;
+import com.mimiclone.fips203.encaps.mlkem.MLKEMEncapsulator;
 import com.mimiclone.fips203.key.*;
 import com.mimiclone.fips203.key.check.KeyPairCheckException;
-import com.mimiclone.fips203.key.gen.FIPS203KeyGeneration;
+import com.mimiclone.fips203.key.gen.KeyPairGeneration;
 import com.mimiclone.fips203.key.gen.KeyPairGenerationException;
-import com.mimiclone.fips203.key.gen.impl.KeyGenImpl;
+import com.mimiclone.fips203.key.gen.mlkem.MLKEMKeyPairGenerator;
+import com.mimiclone.fips203.message.CipherText;
 
 import java.security.DrbgParameters;
 import java.security.NoSuchAlgorithmException;
@@ -27,10 +32,25 @@ public class MimicloneFIPS203 implements FIPS203 {
     // FIPS 203 Parameter Set assigned
     private final ParameterSet parameterSet;
 
+    private final KeyPairGeneration keyPairGenerator;
+
+    private final Encapsulator encapsulator;
+
+    private final Decapsulator decapsulator;
+
     MimicloneFIPS203(ParameterSet parameterSet) {
 
         // Assign the chosen parameter set
         this.parameterSet = parameterSet;
+
+        // Initialize the Key Pair Generator
+        this.keyPairGenerator = new MLKEMKeyPairGenerator(parameterSet);
+
+        // Initialize the Encapsulator
+        this.encapsulator = new MLKEMEncapsulator(parameterSet);
+
+        // Initialize the Decapsulator
+        this.decapsulator = new MLKEMDecapsulator(parameterSet);
 
     }
 
@@ -45,7 +65,7 @@ public class MimicloneFIPS203 implements FIPS203 {
      * @return A FIPS203KeyPair instance.
      */
     @Override
-    public FIPS203KeyPair generateKeyPair() {
+    public FIPS203KeyPair generateKeyPair() throws KeyPairGenerationException {
 
         // Get the secure RBG
         SecureRandom secureRandom;
@@ -63,7 +83,7 @@ public class MimicloneFIPS203 implements FIPS203 {
 
         } catch (NoSuchAlgorithmException e) {
             // FIPS203:Algorithm19:Line4
-            // Not finding the algorithm would case d and z to be null,
+            // Not finding the algorithm would cause d and z to be null,
             // so we throw an error here.
             throw new KeyPairGenerationException(e.getMessage());
         }
@@ -83,24 +103,34 @@ public class MimicloneFIPS203 implements FIPS203 {
         // for them to be null.  Checking would raise a compiler error
 
         // Invoke Key Generation
-        FIPS203KeyGeneration keyGeneration = new KeyGenImpl(parameterSet);
+        KeyPairGeneration keyGeneration = new MLKEMKeyPairGenerator(parameterSet);
         return keyGeneration.generateKeyPair(d, z);
 
     }
 
+    /**
+     * Implements Algorithm
+     * @param keyPair
+     * @throws KeyPairCheckException
+     */
     @Override
     public void keyPairCheck(FIPS203KeyPair keyPair) throws KeyPairCheckException {
         // TODO: Implement key pair checking
         throw new KeyPairCheckException("Key pair checking has not yet been implemented.");
     }
 
+    /**
+     * Implements Algorithm 20 (ML-KEM.Encaps) of the FIPS203 Specification
+     * @param key An {@code EncapsulationKey} instance.
+     * @return A {@code SharedSecretKey}
+     */
     @Override
-    public byte[] encapsulateBlock(EncapsulationKey key, byte[] clearText) {
-        return new byte[0];
+    public SharedSecretKey encapsulate(EncapsulationKey key) {
+        return null;
     }
 
     @Override
-    public byte[] decapsulateBlock(DecapsulationKey key, byte[] cypherText) {
-        return new byte[0];
+    public SharedSecretKey decapsulate(DecapsulationKey key, CipherText cipherText) {
+        return null;
     }
 }

@@ -1,4 +1,4 @@
-package com.mimiclone.fips203.key.gen.impl;
+package com.mimiclone.fips203.key.gen.mlkem;
 
 import com.mimiclone.CryptoUtils;
 import com.mimiclone.fips203.shake.XOFParameterSet;
@@ -7,9 +7,9 @@ import com.mimiclone.fips202.keccak.io.BitInputStream;
 import com.mimiclone.fips202.keccak.io.BitOutputStream;
 import com.mimiclone.fips203.ParameterSet;
 import com.mimiclone.fips203.key.FIPS203KeyPair;
-import com.mimiclone.fips203.key.gen.FIPS203KeyGeneration;
+import com.mimiclone.fips203.key.gen.KeyPairGeneration;
 import com.mimiclone.fips203.key.gen.KeyPairGenerationException;
-import com.mimiclone.fips203.key.impl.FIPS203KeyPairImpl;
+import com.mimiclone.fips203.key.mlkem.MLKEMKeyPair;
 import com.mimiclone.fips203.transforms.MimicloneNTT;
 import com.mimiclone.fips203.transforms.NumberTheoretic;
 import lombok.AllArgsConstructor;
@@ -21,7 +21,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
 
 @AllArgsConstructor
-public final class KeyGenImpl implements FIPS203KeyGeneration {
+public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
 
     final ParameterSet parameterSet;
 
@@ -101,7 +101,7 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
         // Create result keypair
         // The implementation itself will make a copy of the key bytes, so we don't need to
         // worry about it being modified by outside code.
-        return FIPS203KeyPairImpl.fromBytes(ekPKE, dkResult);
+        return MLKEMKeyPair.fromBytes(ekPKE, dkResult);
 
     }
 
@@ -214,7 +214,7 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
         }
 
         // Create and return the wrapped KeyPair
-        return FIPS203KeyPairImpl.fromBytes(ekPKE, dkPKE);
+        return MLKEMKeyPair.fromBytes(ekPKE, dkPKE);
     }
 
     /**

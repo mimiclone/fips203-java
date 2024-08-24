@@ -1,13 +1,11 @@
-package com.mimiclone.fips203.key.gen.impl;
+package com.mimiclone.fips203.key.gen.mlkem;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.deser.impl.CreatorCandidate;
 import com.mimiclone.fips203.ParameterSet;
 import com.mimiclone.fips203.key.FIPS203KeyPair;
 import com.mimiclone.harness.TestCase;
 import com.mimiclone.harness.TestGroup;
 import com.mimiclone.harness.TestPrompt;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -48,7 +46,7 @@ public class KeyGenImplTests {
     private void execTestCase(ParameterSet params, TestCase testCase) {
 
         // Create keygen under test
-        KeyGenImpl mlKemKeyGen = new KeyGenImpl(params);
+        MLKEMKeyPairGenerator mlKemKeyGen = new MLKEMKeyPairGenerator(params);
 
         // Print header
         System.out.printf("%n[Test Case %d] using %s Parameter Set:%n", testCase.getTcId(), params.getName());

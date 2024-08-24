@@ -1,10 +1,10 @@
-package com.mimiclone.fips203.key.impl;
+package com.mimiclone.fips203.key.mlkem;
 
 import com.mimiclone.fips203.key.DecapsulationKey;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-public class DecapsulationKeyImpl implements DecapsulationKey {
+public class MLKEMDecapsulationKey implements DecapsulationKey {
 
     private final byte[] keyBytes;
 

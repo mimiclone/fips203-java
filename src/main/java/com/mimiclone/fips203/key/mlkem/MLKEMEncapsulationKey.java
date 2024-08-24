@@ -1,4 +1,4 @@
-package com.mimiclone.fips203.key.impl;
+package com.mimiclone.fips203.key.mlkem;
 
 import com.mimiclone.fips203.key.EncapsulationKey;
 import lombok.AllArgsConstructor;
@@ -8,7 +8,7 @@ import lombok.AllArgsConstructor;
  * cannot be modified once passed to the constructor.
  */
 @AllArgsConstructor
-public class EncapsulationKeyImpl implements EncapsulationKey {
+public class MLKEMEncapsulationKey implements EncapsulationKey {
 
     private final byte[] keyBytes;
 
