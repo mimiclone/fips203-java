@@ -181,8 +181,11 @@ public class MimicloneNTT implements NumberTheoretic {
         // Multiply all entries
         for (int i = 0; i < result.length; i++) {
 
-            // NOTE: The magic number 3303 is defined in the FIPS203 spec as 128^-1 mod q.
-            result[i] = BigInteger.valueOf((long) result[i] * 3303).mod(q).intValue();
+            // NOTE: The magic number 3303 is defined in the FIPS203 spec as 128^-1.
+            result[i] = BigInteger.valueOf((long) result[i])
+                    .multiply(BigInteger.valueOf(3303))
+                    .mod(q)
+                    .intValue();
 
         }
 

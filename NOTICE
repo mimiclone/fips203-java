@@ -1,0 +1,27 @@
+The FIPS 203 Final Standard (published on August 13, 2024) relies on some specific
+functions from the FIPS 202 Standard.  Unfortunately, there are effectively no usable
+open source implementations of this standard written in Java that include the XOF functions
+SHAKE128 and SHAKE256 (including in the various JDKs lol).
+
+Several notable vendors do have expensive and closed-source implementations intended for
+use by governments, but the only notable open-source implementation from a well-known
+vendor is BouncyCastle.  Unfortunately the BouncyCastle implementation is wrapped up in
+a large number of legacy wrappers and extensions, and just isn't as clean and fast as it could be,
+and thus did not feel like a good fit for this particular purpose.
+
+Most of the other implementations out there (in any language) are tied to a draft spec
+rather than the final spec, or are implementations of the initial algorithm set (Keccak)
+prior to standardization by NIST.
+
+The closest thing we could find to a clean, open source modern implementation of FIPS 202
+was KeccakJ written by Amund Elstad (https://github.com/aelstad/keccakj).  We do not
+use this code directly, but our implementation was heavily inspired by that work, and so
+we give attribution here.  That code hasn't been updated in over a decade, but it is
+licensed under Apache 2.0, with the below original NOTICE:
+
+----------------- KeccakJ Original Notice ----------------------------------------
+The test vectors files are copied from https://github.com/gvanas/KeccakCodePackage
+
+The permuation implementation is based on the reference C implementation in https://github.com/gvanas/KeccakCodePackage
+
+Please visit http://keccak.noekeon.org/ for excellent information about Keccack.

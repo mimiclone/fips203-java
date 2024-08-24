@@ -1,12 +1,17 @@
 plugins {
     id 'java'
     id 'idea'
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
 }
 
 group = 'com.mimiclone'
-version = '0.0.1-SNAPSHOT'
+version = '1.0.0-SNAPSHOT'
 
 java {
+    withJavadocJar()
+    withSourcesJar()
     toolchain {
         languageVersion = JavaLanguageVersion.of(21);
         vendor = JvmVendorSpec.ADOPTIUM;
@@ -17,6 +22,18 @@ idea {
     module {
         downloadJavadoc = true
         downloadSources = true
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'com.mimiclone'
+            artifactId = 'fips203-java'
+            version = '1.0.0'
+
+            from components.java
+        }
     }
 }
 
@@ -31,11 +48,24 @@ repositories {
     mavenCentral()
 }
 
+signing {
+    sign publishing.publications.mavenJava
+}
+
+
+javadoc {
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}
+
 dependencies {
-    implementation 'com.github.aelstad:keccakj:1.1.0'
     compileOnly 'org.projectlombok:lombok:1.18.34'
     annotationProcessor 'org.projectlombok:lombok:1.18.34'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.34'
+    testCompileOnly 'org.projectlombok:lombok:1.18.34'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

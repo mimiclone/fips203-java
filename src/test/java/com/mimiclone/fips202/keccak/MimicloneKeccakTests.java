@@ -6,13 +6,13 @@ import java.util.BitSet;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class KeccakTests {
+public class MimicloneKeccakTests {
 
     @Test
     public void testSafeMod() {
 
         // Create the permutation engine
-        Keccak keccak = new Keccak(Keccak.Permutation.KECCAK_F1600);
+        MimicloneKeccak keccak = new MimicloneKeccak(MimicloneKeccak.Permutation.KECCAK_F1600);
         assertNotNull(keccak);
 
         assertEquals(0, keccak.mod(-5, 5));
@@ -60,7 +60,7 @@ public class KeccakTests {
         }
 
         // Create the permutation engine
-        Keccak keccak = new Keccak(Keccak.Permutation.KECCAK_F1600);
+        MimicloneKeccak keccak = new MimicloneKeccak(MimicloneKeccak.Permutation.KECCAK_F1600);
         assertNotNull(keccak);
 
         // Run the permutation

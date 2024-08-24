@@ -20,7 +20,7 @@ import java.util.BitSet;
  * </ul>
  *
  */
-public class Keccak {
+public class MimicloneKeccak {
 
     @Getter(value = AccessLevel.PACKAGE)
     public enum Permutation {
@@ -79,7 +79,7 @@ public class Keccak {
 
     private final Permutation permutation;
 
-    public Keccak(Permutation permutation) {
+    public MimicloneKeccak(Permutation permutation) {
         this.permutation = permutation;
     }
 

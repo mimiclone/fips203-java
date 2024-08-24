@@ -1,9 +1,9 @@
 package com.mimiclone.fips202;
 
-import com.mimiclone.fips202.keccak.Keccak;
+import com.mimiclone.fips202.keccak.MimicloneKeccak;
 
 public interface FIPS202 {
 
-    Keccak keccakPermutation(Keccak.Permutation permutation);
+    MimicloneKeccak keccakPermutation(MimicloneKeccak.Permutation permutation);
 
 }

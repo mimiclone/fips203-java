@@ -9,6 +9,7 @@ import lombok.Getter;
 public enum ParameterSet {
 
     ML_KEM_512(
+            "ML-KEM-512",
             2,
             3,
             2,
@@ -22,6 +23,7 @@ public enum ParameterSet {
     ),
 
     ML_KEM_768(
+            "ML-KEM-768",
             3,
             2,
             2,
@@ -35,6 +37,7 @@ public enum ParameterSet {
     ),
 
     ML_KEM_1024(
+            "ML-KEM-1024",
             4,
             2,
             2,
@@ -46,6 +49,8 @@ public enum ParameterSet {
             1568,
             32
     );
+
+    private final String name;
 
     /**
      * The n value is not actually part of the parameter set, it is a global variable

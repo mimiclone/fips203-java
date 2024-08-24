@@ -1,7 +1,10 @@
 package com.mimiclone.fips203.key.gen.impl;
 
-import com.github.aelstad.keccakj.core.KeccakSponge;
-import com.github.aelstad.keccakj.fips202.Shake256;
+import com.mimiclone.CryptoUtils;
+import com.mimiclone.fips203.shake.XOFParameterSet;
+import com.mimiclone.fips202.keccak.core.KeccakSponge;
+import com.mimiclone.fips202.keccak.io.BitInputStream;
+import com.mimiclone.fips202.keccak.io.BitOutputStream;
 import com.mimiclone.fips203.ParameterSet;
 import com.mimiclone.fips203.key.FIPS203KeyPair;
 import com.mimiclone.fips203.key.gen.FIPS203KeyGeneration;
@@ -20,7 +23,7 @@ import java.util.BitSet;
 @AllArgsConstructor
 public final class KeyGenImpl implements FIPS203KeyGeneration {
 
-    private final ParameterSet parameterSet;
+    final ParameterSet parameterSet;
 
     /**
      * Precomputed values of gamma = 𝜁^(2BitRev7(𝑖)+1) mod 𝑞 as provided in Appendix A of the FIPS203 Specification
@@ -159,11 +162,7 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
         // Generate A hat matrix
         for (int i = 0; i < k; i++) {
             for (int j = 0; j < k; j++) {
-                aHatMatrix[i][j] = sampleNTT(
-                        ByteBuffer.wrap(new byte[34])
-                                .put(rho).put((byte) j).put((byte) i)
-                                .array().clone()
-                );
+                aHatMatrix[i][j] = sampleNTT(rho, (byte) j, (byte) i);
             }
         }
 
@@ -197,40 +196,21 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
         }
 
         // Noisy linear system in NTT domain
-        int[][] tHat = new int[k][256];
+        int[][] tHat = matrixAdd(matrixMultiply(aHatMatrix, sHat), eHat);
 
-        // Iterate over the sheets of aHat
-        for (int i = 0; i < k; i++) {
-
-            // Iterate over the lanes of this slice of aHat
-            for (int j = 0; j < k; j++) {
-
-                // Perform the NTT multiplication of a lane from aHat and a lane from sHat
-                int[] mul = multiplyNTTs(aHatMatrix[i][j], sHat[j]);
-
-                // for each entry in tHat, add the result of the NTT Multiplication
-                for (int entry = 0; entry < 256; entry++) {
-                    tHat[i][entry] = mul[entry] + eHat[j][entry];
-                }
-
-            }
-        }
-
-        // ByteEncode ekPKE
+        // ByteEncode ekPKE and append rho
         byte[] ekPKE = new byte[384*k+32];
         ByteBuffer ekPKEBuffer = ByteBuffer.wrap(ekPKE);
         for (int i = 0; i < k; i++) {
-            ekPKEBuffer.put(byteEncode12(tHat[i]));
+            ekPKEBuffer.put(byteEncode(12, tHat[i]));
         }
-
-        // Append Rho
         ekPKEBuffer.put(rho);
 
         // ByteEncode dkPKE
         byte[] dkPKE = new byte[384*k];
         ByteBuffer dkPKEBuffer = ByteBuffer.wrap(dkPKE);
         for (int i = 0; i < k; i++) {
-            dkPKEBuffer.put(byteEncode12(sHat[i]));
+            dkPKEBuffer.put(byteEncode(12, sHat[i]));
         }
 
         // Create and return the wrapped KeyPair
@@ -256,44 +236,98 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
         // Compiler check to ensure number of bits is a multiple of 8.
         assert bits.length() % 8 == 0;
 
-        // Convert to a copied byte array
-        return bits.toByteArray().clone();
+        int c = bits.length();
+        byte[] z = new byte[c / 8];
+        for (int i = 0; i < c; i++) {
+            z[i/8] = (byte) (z[i/8] + ((bits.get(i) ? 1 : 0) * (1 << (i % 8))));
+        }
+
+        return z;
 
     }
 
     /**
      * Implements Algorithm 5 from Page 22 of the FIPS 203 Specification.
      * Encodes an array of 256 d-bit integers into a byte array for 1 <= d <= 12.
-     * The value of d (number of bits) is determined by the parameter set.
      *
+     * The point of this operation is to pack integer values that do not necessarily
+     * align to byte boundaries and pack them into the smallest number of bytes possible.
+     *
+     * @param d An {@code int}
      * @param f An array of 256 integers in modulo m
-     * @return
+     * @return A {@code byte} array of length {@code 32 * d}
      */
-    byte[] byteEncode12(int[] f) {
+    byte[] byteEncode(int d, int[] f) {
 
-        byte[] outputArray = new byte[384];
-        int outputIndex = 0;
-        int bitBuffer = 0;
-        int bitsInBuffer = 0;
+        // Declare bitset
+        int bitCapacity = 256 * d;
+        BitSet b = new BitSet(bitCapacity);
 
-        for (int value: f) {
+        // If d < 12, then m = 2^d otherwise m = q
+        BigInteger m = d < 12 ? BigInteger.valueOf(2).pow(d) : BigInteger.valueOf(parameterSet.getQ());
 
-            // Extract the least significant 12 bits
-            int bits12 = value & 0xFFF;
+        // Iterate over the input array
+        for (int i = 0; i < 256; i++) {
 
-            // Add these 12 bits to the buffer
-            bitBuffer = (bitBuffer << 12) | bits12;
-            bitsInBuffer += 12;
+            // Extract a single integer (modulo m) -> Assumes big endian bit order and 32-bit ints
+            int a = f[i] & CryptoUtils.INT_BIT_MASKS[d];
 
-            // While we have at least 8 bits in buffer, output a byte
-            while (bitsInBuffer >= 8) {
-                bitsInBuffer -= 8;
-                outputArray[outputIndex++] = (byte) (bitBuffer >> bitsInBuffer);
+            // Iterate over the bits in the integer
+            for (int j = 0; j < d; j++) {
+
+                // Calculate the bit index for the operation
+                int bitIndex = i * d + j;
+
+                // b[i*d+j] = a mod 2 = LSB(a)
+                b.set(bitIndex, (a & CryptoUtils.INT_BIT_MASKS[1]) != 0);
+
+                // Update a
+                a = (a - (b.get(bitIndex) ? 1 : 0))/2;
+
+            }
+
+        }
+
+        // Convert the bitset to a byte array
+        byte[] result = new byte[bitCapacity/8];
+        byte[] bitsAsBytes = b.toByteArray();
+        System.arraycopy(bitsAsBytes, 0, result, 0, bitsAsBytes.length);
+        return result;
+
+    }
+
+    int[][] matrixMultiply(int[][][] a, int[][] b) {
+        int aRows = a.length;
+        int aCols = a[0].length;
+
+        int[][] product = new int[aRows][256];
+
+        for (int i = 0; i < aRows; i++) {
+            for (int j = 0; j < aCols; j++) {
+                int[] nttProduct = multiplyNTTs(a[i][j], b[j]);
+                for (int k = 0; k < 256; k++) {
+                    product[i][k] = (product[i][k] + nttProduct[k]) % parameterSet.getQ();
+                }
             }
         }
 
-        return outputArray;
+        return product;
+    }
 
+    int[][] matrixAdd(int[][] a, int[][] b) {
+        int rows = a.length;
+        int cols = a[0].length;
+
+        int[][] sum = new int[rows][];
+
+        for (int i = 0; i < rows; i++) {
+            sum[i] = new int[cols];
+            for (int j = 0; j < cols; j++) {
+                sum[i][j] = (a[i][j] + b[i][j]) % parameterSet.getQ();
+            }
+        }
+
+        return sum;
     }
 
     /**
@@ -345,22 +379,56 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
         BigInteger q = BigInteger.valueOf(3329);
 
         // Perform multiplications using BigInteger to prevent overflow and make modulo arithmetic easier
-        int c0 = a.multiply(c).mod(q).add(b.multiply(d).mod(q).multiply(d).mod(q).multiply(e).mod(q)).mod(q).intValue();
-        int c1 = a.multiply(d).mod(q).add( b.multiply(c).mod(q)).mod(q).intValue();
+        int c0 = a.multiply(c).add(b.multiply(d).multiply(e)).mod(q).intValue();
+        int c1 = a.multiply(d).add( b.multiply(c) ).mod(q).intValue();
 
         return new int[]{c0, c1};
     }
 
-    int[] sampleNTT(byte[] seedPlusIndices) {
+    int[] sampleNTT(byte[] seed, byte a, byte b) {
 
-        // TODO: Init context with XOF
+        // Setup internal context vars
+        int j = 0;
+        int[] aHat = new int[256];
+        byte[] sample = new byte[3];
 
-        // TODO: Absorb seedPlusIndices into context with XOF
+        // Init context for XOF
+        KeccakSponge xof = new KeccakSponge(XOFParameterSet.SHAKE128);
+        BitOutputStream absorbStream = xof.getAbsorbStream();
+        BitInputStream squeezeStream = xof.getSqueezeStream();
 
-        // TODO: Implement the rest
+        // Absorb the seed rho, and the indices i and j that have been appended as bytes
+        absorbStream.write(seed);
+        absorbStream.write(new byte[] {a, b});
 
-        // TODO: Replace with actual return value
-        return new int[256];
+        while (j < 256) {
+
+            if (squeezeStream.read(sample) != 3) {
+                throw new KeyPairGenerationException("Unable to squeeze 3 bytes of data");
+            }
+
+            // Java doesn't have unsigned bytes, but this algorithm treats sampled bytes as if they are integers
+            // which leads to strange behavior with a signed byte type.  So we extract the sample values and convert
+            // them to unsigned integers.
+            int c0 = Byte.toUnsignedInt(sample[0]);
+            int c1 = Byte.toUnsignedInt(sample[1]);
+            int c2 = Byte.toUnsignedInt(sample[2]);
+
+            int d1 = c0 + 256 * (c1 % 16);
+            int d2 = (c1 / 16) + (16 * c2);
+
+            if (d1 < parameterSet.getQ()) {
+                aHat[j] = d1;
+                j++;
+            }
+
+            if (d2 < parameterSet.getQ() && j < 256) {
+                aHat[j] = d2;
+                j++;
+            }
+        }
+
+        return aHat;
     }
 
     /**
@@ -415,20 +483,22 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
 
         int eta = parameterSet.getEta1();
 
-        // Add the
-        byte[] sb = ByteBuffer.allocate(33)
-                .put(s).put(b)
-                .array().clone();
+        // Init XOF
+        KeccakSponge sponge = new KeccakSponge(XOFParameterSet.SHAKE256);
+        BitOutputStream absorbStream = sponge.getAbsorbStream();
+        BitInputStream squeezeStream = sponge.getSqueezeStream();
 
-        byte[] result;
-        try {
-            result = shake256(sb, 64*eta);
-        } catch (NoSuchAlgorithmException e) {
-            throw new KeyPairGenerationException("SHAKE256 algorithm not available on system.");
+        // Absorb s and b
+        absorbStream.write(s);
+        absorbStream.write(new byte[] {b});
+
+        // Squeeze the result
+        byte[] digest = new byte[64 * eta];
+        if (squeezeStream.read(digest) != digest.length) {
+            throw new KeyPairGenerationException("PRF XOF.Squeeze() operation failed");
         }
 
-        return result;
-
+        return digest;
     }
 
     /**
@@ -457,11 +527,7 @@ public final class KeyGenImpl implements FIPS203KeyGeneration {
      */
     final byte[] shake256(byte[] s, int outputLength) throws NoSuchAlgorithmException {
 
-        // TODO: Finish FIPS202 SHAKE256 XOF implementation
-        // System algorithm is bullshit and doesn't come with XOF functionality
-        // Temporarily using a third party library which is only conformant with the draft spec.
-
-        KeccakSponge sponge = new Shake256();
+        KeccakSponge sponge = new KeccakSponge(XOFParameterSet.SHAKE256);
         sponge.getAbsorbStream().write(s);
 
         byte[] digest = new byte[outputLength];
