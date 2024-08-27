@@ -11,7 +11,7 @@
  */
 package com.mimiclone.fips202.keccak.spi;
 
-import com.mimiclone.fips203.shake.XOFParameterSet;
+import com.mimiclone.fips203.hash.XOFParameterSet;
 import com.mimiclone.fips202.keccak.core.KeccakSponge;
 
 public final class Shake128StreamCipher extends AbstractSpongeStreamCipher {

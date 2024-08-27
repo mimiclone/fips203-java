@@ -1,5 +1,6 @@
 package com.mimiclone.fips203;
 
+import com.mimiclone.fips203.encaps.Encapsulation;
 import com.mimiclone.fips203.key.*;
 import com.mimiclone.fips203.key.check.KeyPairCheckException;
 import com.mimiclone.fips203.key.gen.KeyPairGenerationException;
@@ -16,15 +17,15 @@ public interface FIPS203 {
     /**
      * Implementation of the KeyGen algorithm as specified in the FIPS203 Specification
      */
-    FIPS203KeyPair generateKeyPair() throws KeyPairGenerationException;
+    KeyPair generateKeyPair() throws KeyPairGenerationException;
 
-    void keyPairCheck(FIPS203KeyPair keyPair) throws KeyPairCheckException;
+    void keyPairCheck(KeyPair keyPair) throws KeyPairCheckException;
 
     /**
      * Implementation of the Encaps algorithm as specified in the FIPS203 Specification
      * @return An array of exactly 32 bytes representing the encapsulated cyphertext
      */
-    SharedSecretKey encapsulate(EncapsulationKey key);
+    Encapsulation encapsulate(EncapsulationKey key);
 
     /**
      * Implementation of the Decaps algorithm as specified in the FIPS203 Specification

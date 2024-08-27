@@ -34,7 +34,7 @@ only initialization parameter needed.
 Simply call the generateKeyPair() method from the interface.
 
 ```java
-    import com.mimiclone.fips203.key.FIPS203KeyPair;
+    import com.mimiclone.fips203.key.KeyPair;
     
     FIPS203KeyPair keyPair = fips203.generateKeyPair();
 ```

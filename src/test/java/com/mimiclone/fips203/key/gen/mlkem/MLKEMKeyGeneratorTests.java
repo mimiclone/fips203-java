@@ -2,7 +2,7 @@ package com.mimiclone.fips203.key.gen.mlkem;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mimiclone.fips203.ParameterSet;
-import com.mimiclone.fips203.key.FIPS203KeyPair;
+import com.mimiclone.fips203.key.KeyPair;
 import com.mimiclone.harness.TestCase;
 import com.mimiclone.harness.TestGroup;
 import com.mimiclone.harness.TestPrompt;
@@ -16,7 +16,7 @@ import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class KeyGenImplTests {
+public class MLKEMKeyGeneratorTests {
 
     private TestPrompt prompt;
 
@@ -26,9 +26,9 @@ public class KeyGenImplTests {
         var objectMapper = new ObjectMapper();
 
         // Load the JSON test prompts
-        try (InputStream inputStream = KeyGenImplTests.class.getResourceAsStream(fromResource)) {
+        try (InputStream inputStream = MLKEMKeyGeneratorTests.class.getResourceAsStream(fromResource)) {
             if (inputStream == null) {
-                throw new IOException("Could not find prompt.json");
+                throw new IOException("Could not find " + fromResource);
             }
 
             // Deserialize JSON into POJO
@@ -46,7 +46,7 @@ public class KeyGenImplTests {
     private void execTestCase(ParameterSet params, TestCase testCase) {
 
         // Create keygen under test
-        MLKEMKeyPairGenerator mlKemKeyGen = new MLKEMKeyPairGenerator(params);
+        MLKEMKeyPairGenerator mlKemKeyGen = MLKEMKeyPairGenerator.create(params);
 
         // Print header
         System.out.printf("%n[Test Case %d] using %s Parameter Set:%n", testCase.getTcId(), params.getName());
@@ -60,7 +60,7 @@ public class KeyGenImplTests {
         byte[] expectedDK = HexFormat.of().parseHex((String) testCase.getValues().get("dk"));
 
         // Generate the internal KeyPair
-        FIPS203KeyPair keyPair = mlKemKeyGen.generateKeyPair(inputD, inputZ);
+        KeyPair keyPair = mlKemKeyGen.generateKeyPair(inputD, inputZ);
 
         // Extract the encaps key
         byte[] ek = keyPair.encapsulationKey().getBytes();

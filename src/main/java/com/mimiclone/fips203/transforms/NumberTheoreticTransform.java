@@ -1,8 +1,6 @@
 package com.mimiclone.fips203.transforms;
 
-import java.math.BigInteger;
-
-public interface NumberTheoretic {
+public interface NumberTheoreticTransform {
 
     /**
      * Performs a number theoretic transform of an array of 256 integers in modulo q=3329
@@ -21,5 +19,21 @@ public interface NumberTheoretic {
      * @return An array of 256 integers in modulo q with the transform reversed
      */
     int[] inverse(int[] input);
+
+    int[][] matrixMultiply(int[][][] a, int[][] b);
+
+    int[][] matrixAdd(int[][] a, int[][] b);
+
+    int[][][] matrixTranspose(int[][][] a);
+
+    int[] multiplyNTTs(int[] fHat, int[] gHat);
+
+    int[] baseCaseMultiply(int a0, int a1, int b0, int b1, int gamma);
+
+    int[] vectorTransposeMultiply(int[][] a, int[][] b);
+
+    int[] arrayAdd(int[] a, int[] b);
+
+    int[] arraySubtract(int[] a, int[] b);
 
 }

@@ -1,5 +1,7 @@
 package com.mimiclone.fips203.transforms;
 
+import com.fasterxml.jackson.databind.deser.impl.CreatorCandidate;
+import com.mimiclone.fips203.ParameterSet;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
@@ -22,7 +24,7 @@ public class NTTTests {
         final int[] expectedOutput = new int[256];
 
         // Instantiate transformer
-        final NumberTheoretic ntt = MimicloneNTT.fips203();
+        final NumberTheoreticTransform ntt = MLKEMNumberTheoreticTransform.fips203(ParameterSet.ML_KEM_1024);
         assertNotNull(ntt);
 
         // Perform transform
@@ -59,7 +61,7 @@ public class NTTTests {
         };
 
         // Instantiate the transformer
-        final MimicloneNTT ntt = MimicloneNTT.withModulus(BigInteger.valueOf(3329));
+        final MLKEMNumberTheoreticTransform ntt = MLKEMNumberTheoreticTransform.fips203(ParameterSet.ML_KEM_1024);
         assertNotNull(ntt);
 
         // Loop through the values of i from 0 to 127 and verify the output
@@ -96,7 +98,7 @@ public class NTTTests {
         };
 
         // Instantiate the transformer
-        final MimicloneNTT ntt = MimicloneNTT.withModulus(BigInteger.valueOf(3329));
+        final MLKEMNumberTheoreticTransform ntt = MLKEMNumberTheoreticTransform.fips203(ParameterSet.ML_KEM_1024);
         assertNotNull(ntt);
 
         // Loop through the values of i from 0 to 127 and verify the output

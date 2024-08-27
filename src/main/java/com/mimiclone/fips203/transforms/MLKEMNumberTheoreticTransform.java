@@ -1,16 +1,16 @@
 package com.mimiclone.fips203.transforms;
 
-import lombok.AllArgsConstructor;
+import com.mimiclone.fips203.ParameterSet;
+import lombok.RequiredArgsConstructor;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-@AllArgsConstructor(access = lombok.AccessLevel.PRIVATE)
-public class MimicloneNTT implements NumberTheoretic {
+@RequiredArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
+
+    private final ParameterSet parameterSet;
 
     /**
      * The modulus base
@@ -69,12 +69,34 @@ public class MimicloneNTT implements NumberTheoretic {
             1729
     };
 
-    public static MimicloneNTT fips203() {
-        return new MimicloneNTT(BigInteger.valueOf(3329));
-    }
+    /**
+     * Precomputed values of gamma = 𝜁^(2BitRev7(𝑖)+1) mod 𝑞 as provided in Appendix A of the FIPS203 Specification
+     * on Page 45.  Computation of these values can overflow built-in data types before being
+     * bounded by the modulus so it is significantly easier and faster to work with precomputed values.
+     * These values are used in the implementation of Algorithm 11 when multiplying polynomial
+     * coefficient matrices in NTT space.
+     */
+    final int[] nttGammaVals = {
+            17, -17, 2761, -2761, 583, -583, 2649, -2649,
+            1637, -1637, 723, -723, 2288, -2288, 1100, -1100,
+            1409, -1409, 2662, -2662, 3281, -3281, 233, -233,
+            756, -756, 2156, -2156, 3015, -3015, 3050, -3050,
+            1703, -1703, 1651, -1651, 2789, -2789, 1789, -1789,
+            1847, -1847, 952, -952, 1461, -1461, 2687, -2687,
+            939, -939, 2308, -2308, 2437, -2437, 2388, -2388,
+            733, -733, 2337, -2337, 268, -268, 641, -641,
+            1584, -1584, 2298, -2298, 2037, -2037, 3220, -3220,
+            375, -375, 2549, -2549, 2090, -2090, 1645, -1645,
+            1063, -1063, 319, -319, 2773, -2773, 757, -757,
+            2099, -2099, 561, -561, 2466, -2466, 2594, -2594,
+            2804, -2804, 1092, -1092, 403, -403, 1026, -1026,
+            1143, -1143, 2150, -2150, 2775, -2775, 886, -886,
+            1722, -1722, 1212, -1212, 1874, -1874, 1029, -1029,
+            2110, -2110, 2935, -2935, 885, -885, 2154, -2154
+    };
 
-    public static MimicloneNTT withModulus(BigInteger q) {
-        return new MimicloneNTT(q);
+    public static MLKEMNumberTheoreticTransform fips203(ParameterSet parameterSet) {
+        return new MLKEMNumberTheoreticTransform(parameterSet, BigInteger.valueOf(parameterSet.getQ()));
     }
 
     BigInteger bitRev7(BigInteger n) {
@@ -84,12 +106,6 @@ public class MimicloneNTT implements NumberTheoretic {
             n = n.shiftRight(1);
         }
         return result;
-    }
-
-    BigInteger calcZeta(int i) {
-        // Must use BigInteger here because 17^128 will overflow native data types
-        // Zeta itself will be bound between 0 and 3329 (q).
-        return BigInteger.valueOf(17).modPow(bitRev7(BigInteger.valueOf(i)), q);
     }
 
     private void validateInput(int[] input) {
@@ -182,7 +198,7 @@ public class MimicloneNTT implements NumberTheoretic {
         for (int i = 0; i < result.length; i++) {
 
             // NOTE: The magic number 3303 is defined in the FIPS203 spec as 128^-1.
-            result[i] = BigInteger.valueOf((long) result[i])
+            result[i] = BigInteger.valueOf(result[i])
                     .multiply(BigInteger.valueOf(3303))
                     .mod(q)
                     .intValue();
@@ -192,5 +208,138 @@ public class MimicloneNTT implements NumberTheoretic {
         // Return the resulting transform
         return result;
 
+    }
+
+    @Override
+    public int[][] matrixMultiply(int[][][] a, int[][] b) {
+        int aRows = a.length;
+        int aCols = a[0].length;
+
+        int[][] product = new int[aRows][256];
+
+        for (int i = 0; i < aRows; i++) {
+            for (int j = 0; j < aCols; j++) {
+                int[] nttProduct = multiplyNTTs(a[i][j], b[j]);
+                for (int k = 0; k < 256; k++) {
+                    product[i][k] = (product[i][k] + nttProduct[k]) % parameterSet.getQ();
+                }
+            }
+        }
+
+        return product;
+    }
+
+    @Override
+    public int[][] matrixAdd(int[][] a, int[][] b) {
+
+        int rows = a.length;
+        int cols = a[0].length;
+
+        int[][] sum = new int[rows][];
+
+        for (int i = 0; i < rows; i++) {
+            sum[i] = new int[cols];
+            for (int j = 0; j < cols; j++) {
+                sum[i][j] = (a[i][j] + b[i][j]) % parameterSet.getQ();
+            }
+        }
+
+        return sum;
+
+    }
+
+    @Override
+    public int[][][] matrixTranspose(int[][][] a) {
+
+        int rows = a.length;
+        int cols = a[0].length;
+
+        int[][][] transpose = new int[rows][cols][];
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                transpose[j][i] = a[i][j].clone();
+            }
+        }
+
+        return transpose;
+    }
+
+    @Override
+    public int[] multiplyNTTs(int[] fHat, int[] gHat) {
+
+        // Compiler validation of input
+        assert fHat != null;
+        assert fHat.length == 256;
+
+        // Compiler validation of input
+        assert gHat != null;
+        assert gHat.length == 256;
+
+        int[] hHat = new int[256];
+
+        for (int i = 0; i < 128; i++) {
+            int[] c = baseCaseMultiply(
+                    fHat[2*i],
+                    fHat[2*i+1],
+                    gHat[2*i],
+                    gHat[2*i+1],
+                    nttGammaVals[i]
+            );
+            hHat[2*i] = c[0];
+            hHat[2*i+1] = c[1];
+        }
+
+        // Return the result
+        return hHat;
+
+    }
+
+    @Override
+    public int[] baseCaseMultiply(int a0, int a1, int b0, int b1, int gamma) {
+
+        BigInteger a = BigInteger.valueOf(a0);
+        BigInteger b = BigInteger.valueOf(a1);
+        BigInteger c = BigInteger.valueOf(b0);
+        BigInteger d = BigInteger.valueOf(b1);
+        BigInteger e = BigInteger.valueOf(gamma);
+        BigInteger q = BigInteger.valueOf(3329);
+
+        // Perform multiplications using BigInteger to prevent overflow and make modulo arithmetic easier
+        int c0 = a.multiply(c).add(b.multiply(d).multiply(e)).mod(q).intValue();
+        int c1 = a.multiply(d).add( b.multiply(c) ).mod(q).intValue();
+
+        return new int[]{c0, c1};
+
+    }
+
+    @Override
+    public int[] vectorTransposeMultiply(int[][] a, int[][] b) {
+        int[] product = new int[parameterSet.getN()];
+        for (var i = 0; i < a.length; i++) {
+            var nttProduct = multiplyNTTs(a[i], b[i]);
+            for (var j = 0; j < parameterSet.getN(); j++) {
+                product[j] = (product[j] + nttProduct[j]) % parameterSet.getQ();
+            }
+        }
+        return product;
+    }
+
+    @Override
+    public int[] arrayAdd(int[] a, int[] b) {
+        int[] sum = new int[a.length];
+        for (int i = 0; i < a.length; i++) {
+            sum[i] = BigInteger.valueOf(a[i]).add(BigInteger.valueOf(b[i])).mod(BigInteger.valueOf(parameterSet.getQ())).intValue();
+        }
+        return sum;
+    }
+
+    @Override
+    public int[] arraySubtract(int[] a, int[] b) {
+        int[] difference = new int[a.length];
+        for (int i = 0; i < a.length; i++) {
+            difference[i] = BigInteger.valueOf(a[i]).subtract(BigInteger.valueOf(b[i])).mod(BigInteger.valueOf(parameterSet.getQ())).intValue();
+        }
+        return difference;
     }
 }

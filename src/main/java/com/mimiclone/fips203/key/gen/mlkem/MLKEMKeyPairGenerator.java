@@ -1,55 +1,45 @@
 package com.mimiclone.fips203.key.gen.mlkem;
 
-import com.mimiclone.CryptoUtils;
-import com.mimiclone.fips203.shake.XOFParameterSet;
-import com.mimiclone.fips202.keccak.core.KeccakSponge;
-import com.mimiclone.fips202.keccak.io.BitInputStream;
-import com.mimiclone.fips202.keccak.io.BitOutputStream;
+import com.mimiclone.fips203.codec.Codec;
+import com.mimiclone.fips203.codec.MLKEMCodec;
+import com.mimiclone.fips203.hash.Hash;
+import com.mimiclone.fips203.hash.MLKEMHash;
+import com.mimiclone.fips203.key.KeyPair;
 import com.mimiclone.fips203.ParameterSet;
-import com.mimiclone.fips203.key.FIPS203KeyPair;
 import com.mimiclone.fips203.key.gen.KeyPairGeneration;
 import com.mimiclone.fips203.key.gen.KeyPairGenerationException;
 import com.mimiclone.fips203.key.mlkem.MLKEMKeyPair;
-import com.mimiclone.fips203.transforms.MimicloneNTT;
-import com.mimiclone.fips203.transforms.NumberTheoretic;
-import lombok.AllArgsConstructor;
+import com.mimiclone.fips203.sampler.MLKEMSampler;
+import com.mimiclone.fips203.sampler.Sampler;
+import com.mimiclone.fips203.transforms.MLKEMNumberTheoreticTransform;
+import com.mimiclone.fips203.transforms.NumberTheoreticTransform;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.BitSet;
 
-@AllArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
 
-    final ParameterSet parameterSet;
+    private final ParameterSet parameterSet;
 
-    /**
-     * Precomputed values of gamma = 𝜁^(2BitRev7(𝑖)+1) mod 𝑞 as provided in Appendix A of the FIPS203 Specification
-     * on Page 45.  Computation of these values can overflow built-in data types before being
-     * bounded by the modulus so it is significantly easier and faster to work with precomputed values.
-     * These values are used in the implementation of Algorithm 11 when multiplying polynomial
-     * coefficient matrices in NTT space.
-     */
-    final int[] nttGammaVals = {
-            17, -17, 2761, -2761, 583, -583, 2649, -2649,
-            1637, -1637, 723, -723, 2288, -2288, 1100, -1100,
-            1409, -1409, 2662, -2662, 3281, -3281, 233, -233,
-            756, -756, 2156, -2156, 3015, -3015, 3050, -3050,
-            1703, -1703, 1651, -1651, 2789, -2789, 1789, -1789,
-            1847, -1847, 952, -952, 1461, -1461, 2687, -2687,
-            939, -939, 2308, -2308, 2437, -2437, 2388, -2388,
-            733, -733, 2337, -2337, 268, -268, 641, -641,
-            1584, -1584, 2298, -2298, 2037, -2037, 3220, -3220,
-            375, -375, 2549, -2549, 2090, -2090, 1645, -1645,
-            1063, -1063, 319, -319, 2773, -2773, 757, -757,
-            2099, -2099, 561, -561, 2466, -2466, 2594, -2594,
-            2804, -2804, 1092, -1092, 403, -403, 1026, -1026,
-            1143, -1143, 2150, -2150, 2775, -2775, 886, -886,
-            1722, -1722, 1212, -1212, 1874, -1874, 1029, -1029,
-            2110, -2110, 2935, -2935, 885, -885, 2154, -2154
-    };
+    final Codec codec;
+
+    final Hash hash;
+
+    final Sampler sampler;
+
+    final NumberTheoreticTransform ntt;
+
+    public static MLKEMKeyPairGenerator create(ParameterSet parameterSet) {
+        return new MLKEMKeyPairGenerator(
+                parameterSet,
+                MLKEMCodec.build(parameterSet),
+                MLKEMHash.create(parameterSet),
+                MLKEMSampler.create(parameterSet),
+                MLKEMNumberTheoreticTransform.fips203(parameterSet)
+        );
+    }
 
     /**
      * Implements Algorithm 16 (ML-KEM.KeyGen_internal) of the FIPS203 Specification
@@ -60,7 +50,7 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
      * @return FIPS203KeyPair
      */
     @Override
-    public FIPS203KeyPair generateKeyPair(byte[] d, byte[] z) {
+    public KeyPair generateKeyPair(byte[] d, byte[] z) {
 
         // Ensure d exists and is 32 bytes long
         if (d == null || d.length != 32) {
@@ -73,27 +63,22 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
         }
 
         // Call K-PKE.KeyGen
-        FIPS203KeyPair baseKeyPair = generateKPKE(d);
+        KeyPair baseKeyPair = generateKPKE(d);
 
         // Retrieve bytes array for the pke keys
         byte[] ekPKE = baseKeyPair.encapsulationKey().getBytes();
         byte[] dkPKE = baseKeyPair.decapsulationKey().getBytes();
 
         // Hash the encapsulation key
-        byte[] ekHash;
-        try {
-            ekHash = sha3hash256(ekPKE);
-        } catch (NoSuchAlgorithmException e) {
-            throw new KeyPairGenerationException("Hashing algorithm 'SHA3-256' unavailable on the System.");
-        }
+        byte[] ekHash = hash.hHash(ekPKE);
 
         // Calculate byte length of decaps key components
         int dkResultLength = dkPKE.length + ekPKE.length + ekHash.length + z.length;
 
         // Allocate byte array for composite decaps key
         byte[] dkResult = new byte[dkResultLength];
-        ByteBuffer dkResultBuffer = ByteBuffer.wrap(dkResult)
-                .put(dkPKE)
+        ByteBuffer dkResultBuffer = ByteBuffer.wrap(dkResult);
+        dkResultBuffer.put(dkPKE)
                 .put(ekPKE)
                 .put(ekHash)
                 .put(z);
@@ -113,7 +98,7 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
      *
      * @return An initial FIPS203KeyPair instance
      */
-    FIPS203KeyPair generateKPKE(byte[] d) {
+    KeyPair generateKPKE(byte[] d) {
 
         // Ensure d exists and is 32 bytes long
         if (d == null || d.length != 32) {
@@ -130,30 +115,22 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
         buffer.put(d);
         buffer.put(kb);
 
-        byte[] rho;
-        byte[] sigma;
-        try {
-
-            // Generate the combined seeds
-            byte[] rhoAndSigma = sha3hash512(dk);
-            if (rhoAndSigma == null || rhoAndSigma.length != 64) {
-                throw new KeyPairGenerationException("Unable to generate 'rho' and 'sigma' 32-byte seed values");
-            }
-
-            // Wrap rhoAndSigma in a ByteBuffer for future reads
-            ByteBuffer rhoAndSigmaBuffer = ByteBuffer.wrap(rhoAndSigma);
-
-            // Split out rho
-            rho = new byte[32];
-            rhoAndSigmaBuffer.get(rho);
-
-            // Split out sigma
-            sigma = new byte[32];
-            rhoAndSigmaBuffer.get(sigma);
-
-        } catch (NoSuchAlgorithmException e) {
-            throw new KeyPairGenerationException("K-PKE seed generation failed because SHA3-512 could not be found on the system.");
+        // Generate the combined seeds
+        byte[] rhoAndSigma = hash.gHash(dk);
+        if (rhoAndSigma == null || rhoAndSigma.length != 64) {
+            throw new KeyPairGenerationException("Unable to generate 'rho' and 'sigma' 32-byte seed values");
         }
+
+        // Wrap rhoAndSigma in a ByteBuffer for future reads
+        ByteBuffer rhoAndSigmaBuffer = ByteBuffer.wrap(rhoAndSigma);
+
+        // Split out rho
+        byte[] rho = new byte[32];
+        rhoAndSigmaBuffer.get(rho);
+
+        // Split out sigma
+        byte[] sigma = new byte[32];
+        rhoAndSigmaBuffer.get(sigma);
 
         int n = 0;
 
@@ -162,26 +139,23 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
         // Generate A hat matrix
         for (int i = 0; i < k; i++) {
             for (int j = 0; j < k; j++) {
-                aHatMatrix[i][j] = sampleNTT(rho, (byte) j, (byte) i);
+                aHatMatrix[i][j] = sampler.sampleNTT(rho, (byte) j, (byte) i);
             }
         }
 
         // Generate s
         int[][] s = new int[k][256];
         for (int i = 0; i < k; i++) {
-            s[i] = samplePolyCBD(genPRFBytes(sigma, (byte) n));
+            s[i] = sampler.samplePolyCBDEta1(hash.prfEta1(sigma, (byte) n));
             n++;
         }
 
         // Generate e
         int[][] e = new int[k][256];
         for (int i = 0; i < k; i++) {
-            e[i] = samplePolyCBD(genPRFBytes(sigma, (byte) n));
+            e[i] = sampler.samplePolyCBDEta1(hash.prfEta1(sigma, (byte) n));
             n++;
         }
-
-        // Retrieve NTT implementation
-        NumberTheoretic ntt = MimicloneNTT.fips203();
 
         // Calculate sHat
         int[][] sHat = new int[k][256];
@@ -196,13 +170,13 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
         }
 
         // Noisy linear system in NTT domain
-        int[][] tHat = matrixAdd(matrixMultiply(aHatMatrix, sHat), eHat);
+        int[][] tHat = ntt.matrixAdd(ntt.matrixMultiply(aHatMatrix, sHat), eHat);
 
         // ByteEncode ekPKE and append rho
         byte[] ekPKE = new byte[384*k+32];
         ByteBuffer ekPKEBuffer = ByteBuffer.wrap(ekPKE);
         for (int i = 0; i < k; i++) {
-            ekPKEBuffer.put(byteEncode(12, tHat[i]));
+            ekPKEBuffer.put(codec.byteEncode(12, tHat[i]));
         }
         ekPKEBuffer.put(rho);
 
@@ -210,355 +184,11 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
         byte[] dkPKE = new byte[384*k];
         ByteBuffer dkPKEBuffer = ByteBuffer.wrap(dkPKE);
         for (int i = 0; i < k; i++) {
-            dkPKEBuffer.put(byteEncode(12, sHat[i]));
+            dkPKEBuffer.put(codec.byteEncode(12, sHat[i]));
         }
 
         // Create and return the wrapped KeyPair
         return MLKEMKeyPair.fromBytes(ekPKE, dkPKE);
-    }
-
-    /**
-     * Implementation of Algorithm 3 in the FIPS203 Standard.
-     * <p>
-     * Java does not have a native data type for an individual bit aside from boolean, which
-     * comes with the baggage of logical interpretation.  For that reason we substitute a
-     * {@code BitSet} class for the array of bits specified in the Standard.
-     * <p>
-     * This algorithm is likely not to be used at all in the implementation, but we provide
-     * it for completeness with the standard.
-     *
-     * @param bits a {@code BitSet} of length {@code 8 * l}
-     *
-     * @return A {@code byte} array of length {@code l}
-     */
-    byte[] bitsToBytes(BitSet bits) {
-
-        // Compiler check to ensure number of bits is a multiple of 8.
-        assert bits.length() % 8 == 0;
-
-        int c = bits.length();
-        byte[] z = new byte[c / 8];
-        for (int i = 0; i < c; i++) {
-            z[i/8] = (byte) (z[i/8] + ((bits.get(i) ? 1 : 0) * (1 << (i % 8))));
-        }
-
-        return z;
-
-    }
-
-    /**
-     * Implements Algorithm 5 from Page 22 of the FIPS 203 Specification.
-     * Encodes an array of 256 d-bit integers into a byte array for 1 <= d <= 12.
-     *
-     * The point of this operation is to pack integer values that do not necessarily
-     * align to byte boundaries and pack them into the smallest number of bytes possible.
-     *
-     * @param d An {@code int}
-     * @param f An array of 256 integers in modulo m
-     * @return A {@code byte} array of length {@code 32 * d}
-     */
-    byte[] byteEncode(int d, int[] f) {
-
-        // Declare bitset
-        int bitCapacity = 256 * d;
-        BitSet b = new BitSet(bitCapacity);
-
-        // If d < 12, then m = 2^d otherwise m = q
-        BigInteger m = d < 12 ? BigInteger.valueOf(2).pow(d) : BigInteger.valueOf(parameterSet.getQ());
-
-        // Iterate over the input array
-        for (int i = 0; i < 256; i++) {
-
-            // Extract a single integer (modulo m) -> Assumes big endian bit order and 32-bit ints
-            int a = f[i] & CryptoUtils.INT_BIT_MASKS[d];
-
-            // Iterate over the bits in the integer
-            for (int j = 0; j < d; j++) {
-
-                // Calculate the bit index for the operation
-                int bitIndex = i * d + j;
-
-                // b[i*d+j] = a mod 2 = LSB(a)
-                b.set(bitIndex, (a & CryptoUtils.INT_BIT_MASKS[1]) != 0);
-
-                // Update a
-                a = (a - (b.get(bitIndex) ? 1 : 0))/2;
-
-            }
-
-        }
-
-        // Convert the bitset to a byte array
-        byte[] result = new byte[bitCapacity/8];
-        byte[] bitsAsBytes = b.toByteArray();
-        System.arraycopy(bitsAsBytes, 0, result, 0, bitsAsBytes.length);
-        return result;
-
-    }
-
-    int[][] matrixMultiply(int[][][] a, int[][] b) {
-        int aRows = a.length;
-        int aCols = a[0].length;
-
-        int[][] product = new int[aRows][256];
-
-        for (int i = 0; i < aRows; i++) {
-            for (int j = 0; j < aCols; j++) {
-                int[] nttProduct = multiplyNTTs(a[i][j], b[j]);
-                for (int k = 0; k < 256; k++) {
-                    product[i][k] = (product[i][k] + nttProduct[k]) % parameterSet.getQ();
-                }
-            }
-        }
-
-        return product;
-    }
-
-    int[][] matrixAdd(int[][] a, int[][] b) {
-        int rows = a.length;
-        int cols = a[0].length;
-
-        int[][] sum = new int[rows][];
-
-        for (int i = 0; i < rows; i++) {
-            sum[i] = new int[cols];
-            for (int j = 0; j < cols; j++) {
-                sum[i][j] = (a[i][j] + b[i][j]) % parameterSet.getQ();
-            }
-        }
-
-        return sum;
-    }
-
-    /**
-     * Algorithm 11 of FIPS203 Specification
-     * Multiples two coefficient vectors of length 256 in NTT space
-     *
-     * @param fHat An array of 256 ints representing the coefficients of a function f
-     * @param gHat An array of 256 ints representing the coefficients of a function g
-     *
-     * @return An array of 256 ints that is the result of multiplication of the inputs in NTT space.  This value is
-     * called hHat in the specification.
-     */
-    int[] multiplyNTTs(int[] fHat, int[] gHat) {
-
-        // Compiler validation of input
-        assert fHat != null;
-        assert fHat.length == 256;
-
-        // Compiler validation of input
-        assert gHat != null;
-        assert gHat.length == 256;
-
-        int[] hHat = new int[256];
-
-        for (int i = 0; i < 128; i++) {
-            int[] c = baseCaseMultiply(
-                    fHat[2*i],
-                    fHat[2*i+1],
-                    gHat[2*i],
-                    gHat[2*i+1],
-                    nttGammaVals[i]
-            );
-            hHat[2*i] = c[0];
-            hHat[2*i+1] = c[1];
-        }
-
-        // Return the result
-        return hHat;
-
-    }
-
-    int[] baseCaseMultiply(int a0, int a1, int b0, int b1, int gamma) {
-
-        BigInteger a = BigInteger.valueOf(a0);
-        BigInteger b = BigInteger.valueOf(a1);
-        BigInteger c = BigInteger.valueOf(b0);
-        BigInteger d = BigInteger.valueOf(b1);
-        BigInteger e = BigInteger.valueOf(gamma);
-        BigInteger q = BigInteger.valueOf(3329);
-
-        // Perform multiplications using BigInteger to prevent overflow and make modulo arithmetic easier
-        int c0 = a.multiply(c).add(b.multiply(d).multiply(e)).mod(q).intValue();
-        int c1 = a.multiply(d).add( b.multiply(c) ).mod(q).intValue();
-
-        return new int[]{c0, c1};
-    }
-
-    int[] sampleNTT(byte[] seed, byte a, byte b) {
-
-        // Setup internal context vars
-        int j = 0;
-        int[] aHat = new int[256];
-        byte[] sample = new byte[3];
-
-        // Init context for XOF
-        KeccakSponge xof = new KeccakSponge(XOFParameterSet.SHAKE128);
-        BitOutputStream absorbStream = xof.getAbsorbStream();
-        BitInputStream squeezeStream = xof.getSqueezeStream();
-
-        // Absorb the seed rho, and the indices i and j that have been appended as bytes
-        absorbStream.write(seed);
-        absorbStream.write(new byte[] {a, b});
-
-        while (j < 256) {
-
-            if (squeezeStream.read(sample) != 3) {
-                throw new KeyPairGenerationException("Unable to squeeze 3 bytes of data");
-            }
-
-            // Java doesn't have unsigned bytes, but this algorithm treats sampled bytes as if they are integers
-            // which leads to strange behavior with a signed byte type.  So we extract the sample values and convert
-            // them to unsigned integers.
-            int c0 = Byte.toUnsignedInt(sample[0]);
-            int c1 = Byte.toUnsignedInt(sample[1]);
-            int c2 = Byte.toUnsignedInt(sample[2]);
-
-            int d1 = c0 + 256 * (c1 % 16);
-            int d2 = (c1 / 16) + (16 * c2);
-
-            if (d1 < parameterSet.getQ()) {
-                aHat[j] = d1;
-                j++;
-            }
-
-            if (d2 < parameterSet.getQ() && j < 256) {
-                aHat[j] = d2;
-                j++;
-            }
-        }
-
-        return aHat;
-    }
-
-    /**
-     * Implements Algorithm 8 of the FIPS203 specification.
-     *
-     * @param input A byte array of 64 * eta bytes, where eta is defined by the ParamaterSet.
-     * @return An array of 256 integers within modulo q=3329 space
-     */
-    int[] samplePolyCBD(byte[] input) {
-
-        // Get information from parameter set
-        int eta = parameterSet.getEta1();
-
-        // Validate input length
-        if (input == null || input.length != 64*eta) {
-            throw new KeyPairGenerationException("PolyCBD sample input must be %d bytes".formatted(64*eta));
-        }
-
-        // Declare result array
-        int[] result = new int[256];
-
-        BitSet b = BitSet.valueOf(input);
-        for (int i = 0; i < 256; i++) {
-
-            // Calculate X
-            int x = 0;
-            for (int j = 0; j < eta; j++) {
-                x += b.get(2*i*eta + j) ? 1 : 0;
-            }
-
-            // Calculate Y
-            int y = 0;
-            for (int j = 0; j < eta; j++) {
-                y += b.get(2*i*eta + eta + j) ? 1 : 0;
-            }
-
-            result[i] = BigInteger.valueOf(x - y).mod(BigInteger.valueOf(3329)).intValue();
-        }
-
-        return result;
-    }
-
-    /**
-     * Turns a 32-byte array of secrets (plus padding) into a fixed-length output of 64*ETA bytes using
-     * the SHAKE256 algorithm as a PRF (Pseudo Random Function).
-     *
-     * @param s
-     * @param b
-     * @return
-     */
-    byte[] genPRFBytes(byte[] s, byte b) {
-
-        int eta = parameterSet.getEta1();
-
-        // Init XOF
-        KeccakSponge sponge = new KeccakSponge(XOFParameterSet.SHAKE256);
-        BitOutputStream absorbStream = sponge.getAbsorbStream();
-        BitInputStream squeezeStream = sponge.getSqueezeStream();
-
-        // Absorb s and b
-        absorbStream.write(s);
-        absorbStream.write(new byte[] {b});
-
-        // Squeeze the result
-        byte[] digest = new byte[64 * eta];
-        if (squeezeStream.read(digest) != digest.length) {
-            throw new KeyPairGenerationException("PRF XOF.Squeeze() operation failed");
-        }
-
-        return digest;
-    }
-
-    /**
-     * Implements the H hash function (SHA3-256) from the FIPS203 Specification.
-     *
-     * @param s A variable length array of bytes
-     *
-     * @return A byte array of exactly 32 bytes
-     */
-    final byte[] sha3hash256(byte[] s) throws NoSuchAlgorithmException {
-        byte[] result = new byte[32];
-
-        MessageDigest md = MessageDigest.getInstance("SHA3-256");
-        result = md.digest(s);
-
-        return result;
-    }
-
-    /**
-     * Implements the SHAKE256 from the FIPS203 Specification.
-     *
-     * @param s A variable length array of bytes
-     * @param outputLength number of bytes to return as output
-     *
-     * @return outputLength A byte array of exactly numBytes bytes
-     */
-    final byte[] shake256(byte[] s, int outputLength) throws NoSuchAlgorithmException {
-
-        KeccakSponge sponge = new KeccakSponge(XOFParameterSet.SHAKE256);
-        sponge.getAbsorbStream().write(s);
-
-        byte[] digest = new byte[outputLength];
-        sponge.getSqueezeStream().read(digest);
-
-        return digest;
-
-    }
-
-    /**
-     * Implements the G hash function (SHA3-512) from the FIPS203 Specification.
-     *
-     * The spec says that this function should return two 32-byte arrays, but since
-     * Java does not handle tuple wrapping in this fashion we return a single
-     * concatenated 64-byte array and expect the caller to split the upper and lower
-     * 32-bits into separate seed values.
-     *
-     * In this future this may be wrapped in a SeedValue interface
-     *
-     * @param c Variable length byte array input seed
-     * @return An array of exactly 64 bytes representing two concatenated 32-byte seed values
-     *
-     * @throws NoSuchAlgorithmException If the SHA3-512 algorithm cannot be found on the system.
-     */
-    protected final byte[] sha3hash512(byte[] c) throws NoSuchAlgorithmException {
-        byte[] result = new byte[64];
-
-        MessageDigest md = MessageDigest.getInstance("SHA3-512");
-        result = md.digest(c);
-
-        return result;
     }
 
 }

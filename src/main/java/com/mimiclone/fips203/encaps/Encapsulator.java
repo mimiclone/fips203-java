@@ -5,6 +5,6 @@ import com.mimiclone.fips203.key.SharedSecretKey;
 
 public interface Encapsulator {
 
-    SharedSecretKey encapsulate(EncapsulationKey ek) throws EncapsulationException;
+    Encapsulation encapsulate(EncapsulationKey ek, byte[] entropy) throws EncapsulationException;
 
 }

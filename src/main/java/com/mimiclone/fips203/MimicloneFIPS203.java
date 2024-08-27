@@ -2,6 +2,7 @@ package com.mimiclone.fips203;
 
 import com.mimiclone.fips203.decaps.Decapsulator;
 import com.mimiclone.fips203.decaps.mlkem.MLKEMDecapsulator;
+import com.mimiclone.fips203.encaps.Encapsulation;
 import com.mimiclone.fips203.encaps.Encapsulator;
 import com.mimiclone.fips203.encaps.mlkem.MLKEMEncapsulator;
 import com.mimiclone.fips203.key.*;
@@ -32,6 +33,8 @@ public class MimicloneFIPS203 implements FIPS203 {
     // FIPS 203 Parameter Set assigned
     private final ParameterSet parameterSet;
 
+    private final SecureRandom secureRandom;
+
     private final KeyPairGeneration keyPairGenerator;
 
     private final Encapsulator encapsulator;
@@ -43,11 +46,26 @@ public class MimicloneFIPS203 implements FIPS203 {
         // Assign the chosen parameter set
         this.parameterSet = parameterSet;
 
+        try {
+
+            // Create secure random parameters
+            SecureRandomParameters secureParams = DrbgParameters.instantiation(
+                    parameterSet.getMinSecurityStrength(),
+                    DrbgParameters.Capability.PR_AND_RESEED,
+                    null);
+
+            // Create sure random instance
+            secureRandom = SecureRandom.getInstance(SECURE_RBG_ALGO, secureParams);
+
+        } catch (NoSuchAlgorithmException e) {
+            throw new FIPS203Exception(e.getMessage());
+        }
+
         // Initialize the Key Pair Generator
-        this.keyPairGenerator = new MLKEMKeyPairGenerator(parameterSet);
+        this.keyPairGenerator = MLKEMKeyPairGenerator.create(parameterSet);
 
         // Initialize the Encapsulator
-        this.encapsulator = new MLKEMEncapsulator(parameterSet);
+        this.encapsulator = MLKEMEncapsulator.create(parameterSet);
 
         // Initialize the Decapsulator
         this.decapsulator = new MLKEMDecapsulator(parameterSet);
@@ -65,28 +83,7 @@ public class MimicloneFIPS203 implements FIPS203 {
      * @return A FIPS203KeyPair instance.
      */
     @Override
-    public FIPS203KeyPair generateKeyPair() throws KeyPairGenerationException {
-
-        // Get the secure RBG
-        SecureRandom secureRandom;
-
-        try {
-
-            // Create secure random parameters
-            SecureRandomParameters secureParams = DrbgParameters.instantiation(
-                    parameterSet.getMinSecurityStrength(),
-                    DrbgParameters.Capability.PR_AND_RESEED,
-                    null);
-
-            // Create sure random instance
-            secureRandom = SecureRandom.getInstance(SECURE_RBG_ALGO, secureParams);
-
-        } catch (NoSuchAlgorithmException e) {
-            // FIPS203:Algorithm19:Line4
-            // Not finding the algorithm would cause d and z to be null,
-            // so we throw an error here.
-            throw new KeyPairGenerationException(e.getMessage());
-        }
+    public KeyPair generateKeyPair() throws KeyPairGenerationException {
 
         // FIPS203:Algorithm19:Line1
         // Generate 'd', a value of 32 random bytes
@@ -103,7 +100,7 @@ public class MimicloneFIPS203 implements FIPS203 {
         // for them to be null.  Checking would raise a compiler error
 
         // Invoke Key Generation
-        KeyPairGeneration keyGeneration = new MLKEMKeyPairGenerator(parameterSet);
+        KeyPairGeneration keyGeneration = MLKEMKeyPairGenerator.create(parameterSet);
         return keyGeneration.generateKeyPair(d, z);
 
     }
@@ -114,23 +111,42 @@ public class MimicloneFIPS203 implements FIPS203 {
      * @throws KeyPairCheckException
      */
     @Override
-    public void keyPairCheck(FIPS203KeyPair keyPair) throws KeyPairCheckException {
+    public void keyPairCheck(KeyPair keyPair) throws KeyPairCheckException {
         // TODO: Implement key pair checking
         throw new KeyPairCheckException("Key pair checking has not yet been implemented.");
     }
 
     /**
-     * Implements Algorithm 20 (ML-KEM.Encaps) of the FIPS203 Specification
+     * Implements Algorithm 20 (ML-KEM.Encaps) of the FIPS203 Specification.
+     *
+     * This generates 32-bytes of entropy and passes it along to the internal implementation.
+     *
      * @param key An {@code EncapsulationKey} instance.
      * @return A {@code SharedSecretKey}
      */
     @Override
-    public SharedSecretKey encapsulate(EncapsulationKey key) {
-        return null;
+    public Encapsulation encapsulate(EncapsulationKey key) {
+
+        // Generate 32 bytes of securely random entropy
+        byte[] m = new byte[32];
+        secureRandom.nextBytes(m);
+
+        // The spec requires a null check here for m, but Java is designed such that it isn't possible for them to
+        // be null.
+
+        return encapsulator.encapsulate(key, m);
     }
 
+    /**
+     * Implements Algorithm 21 (ML-KEM.Decaps) of the FIPS203 Specification.
+     * No randomness is generated so this is a simple passthrough to the internal implementation.
+     *
+     * @param key
+     * @param cipherText
+     * @return
+     */
     @Override
     public SharedSecretKey decapsulate(DecapsulationKey key, CipherText cipherText) {
-        return null;
+        return decapsulator.decapsulate(key, cipherText);
     }
 }

@@ -26,14 +26,6 @@ public class CryptoUtils {
 
     }
 
-    public static void longsToBytes(ByteOrder order, long[] input, int inputOffset, byte[] output, int outputOffset, int length) {
 
-        // Iterate over the longs
-        for (int i = 0; i < length; ++i) {
-//            byte[] inputBytes = longToBytes(order, input[inputOffset+i] );
-            outputOffset += 8;
-        }
-
-    }
 
 }

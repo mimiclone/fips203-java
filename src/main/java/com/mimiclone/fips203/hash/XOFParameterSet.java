@@ -1,4 +1,4 @@
-package com.mimiclone.fips203.shake;
+package com.mimiclone.fips203.hash;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;

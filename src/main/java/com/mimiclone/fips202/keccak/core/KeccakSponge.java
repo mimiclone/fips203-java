@@ -14,7 +14,7 @@ package com.mimiclone.fips202.keccak.core;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 
-import com.mimiclone.fips203.shake.XOFParameterSet;
+import com.mimiclone.fips203.hash.XOFParameterSet;
 import com.mimiclone.fips202.keccak.core.KeccakStateUtils.StateOp;
 import com.mimiclone.fips202.keccak.io.BitInputStream;
 import com.mimiclone.fips202.keccak.io.BitOutputStream;

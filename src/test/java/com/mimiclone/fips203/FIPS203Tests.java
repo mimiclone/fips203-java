@@ -3,7 +3,7 @@ package com.mimiclone.fips203;
 
 import com.mimiclone.fips203.key.DecapsulationKey;
 import com.mimiclone.fips203.key.EncapsulationKey;
-import com.mimiclone.fips203.key.FIPS203KeyPair;
+import com.mimiclone.fips203.key.KeyPair;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,7 +27,7 @@ public class FIPS203Tests {
         assertEquals(32, parameterSet.getSharedSecretKeyLength());
 
         // Generate the key pair
-        FIPS203KeyPair keyPair = fips203MlKem512.generateKeyPair();
+        KeyPair keyPair = fips203MlKem512.generateKeyPair();
 
         // Ensure the KeyPair object is not null
         assertNotNull(keyPair);

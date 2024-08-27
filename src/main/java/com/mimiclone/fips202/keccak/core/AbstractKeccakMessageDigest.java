@@ -2,7 +2,7 @@ package com.mimiclone.fips202.keccak.core;
 
 import java.security.MessageDigest;
 
-import com.mimiclone.fips203.shake.XOFParameterSet;
+import com.mimiclone.fips203.hash.XOFParameterSet;
 import com.mimiclone.fips202.keccak.io.BitInputStream;
 import com.mimiclone.fips202.keccak.io.BitOutputStream;
 
