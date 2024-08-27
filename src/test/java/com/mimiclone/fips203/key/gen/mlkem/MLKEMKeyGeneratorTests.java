@@ -63,13 +63,13 @@ public class MLKEMKeyGeneratorTests {
         KeyPair keyPair = mlKemKeyGen.generateKeyPair(inputD, inputZ);
 
         // Extract the encaps key
-        byte[] ek = keyPair.encapsulationKey().getBytes();
+        byte[] ek = keyPair.getEncapsulationKey().getBytes();
 
         // Verify it is the expected length
         assertEquals(params.getEncapsulationKeyLength(), ek.length);
 
         // Extract the decaps key
-        byte[] dk = keyPair.decapsulationKey().getBytes();
+        byte[] dk = keyPair.getDecapsulationKey().getBytes();
 
         // Verify it is the expected length
         assertEquals(params.getDecapsulationKeyLength(), dk.length);

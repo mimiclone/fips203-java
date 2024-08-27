@@ -1,11 +1,11 @@
 package com.mimiclone.fips203;
 
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Getter
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public enum ParameterSet {
 
     ML_KEM_512(
@@ -50,6 +50,10 @@ public enum ParameterSet {
             32
     );
 
+    /**
+     * The OID name of the parameter set.  This name is common across all implementations
+     * regardless of the naming conventions of the programming language used.
+     */
     private final String name;
 
     /**

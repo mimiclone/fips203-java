@@ -66,8 +66,8 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
         KeyPair baseKeyPair = generateKPKE(d);
 
         // Retrieve bytes array for the pke keys
-        byte[] ekPKE = baseKeyPair.encapsulationKey().getBytes();
-        byte[] dkPKE = baseKeyPair.decapsulationKey().getBytes();
+        byte[] ekPKE = baseKeyPair.getEncapsulationKey().getBytes();
+        byte[] dkPKE = baseKeyPair.getDecapsulationKey().getBytes();
 
         // Hash the encapsulation key
         byte[] ekHash = hash.hHash(ekPKE);
