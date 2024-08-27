@@ -8,6 +8,6 @@ public record MLKEMKeyPair(EncapsulationKey encapsulationKey,
                            DecapsulationKey decapsulationKey) implements KeyPair {
 
     public static KeyPair fromBytes(byte[] ek, byte[] dk) {
-        return new MLKEMKeyPair(MLKEMEncapsulationKey.create(ek), new MLKEMDecapsulationKey(dk));
+        return new MLKEMKeyPair(MLKEMEncapsulationKey.create(ek), MLKEMDecapsulationKey.create(dk));
     }
 }

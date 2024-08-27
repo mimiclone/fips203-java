@@ -68,7 +68,7 @@ public class MimicloneFIPS203 implements FIPS203 {
         this.encapsulator = MLKEMEncapsulator.create(parameterSet);
 
         // Initialize the Decapsulator
-        this.decapsulator = new MLKEMDecapsulator(parameterSet);
+        this.decapsulator = MLKEMDecapsulator.create(parameterSet);
 
     }
 

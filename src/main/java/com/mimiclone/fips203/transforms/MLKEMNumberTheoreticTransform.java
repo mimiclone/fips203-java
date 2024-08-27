@@ -95,7 +95,7 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
             2110, -2110, 2935, -2935, 885, -885, 2154, -2154
     };
 
-    public static MLKEMNumberTheoreticTransform fips203(ParameterSet parameterSet) {
+    public static MLKEMNumberTheoreticTransform create(ParameterSet parameterSet) {
         return new MLKEMNumberTheoreticTransform(parameterSet, BigInteger.valueOf(parameterSet.getQ()));
     }
 

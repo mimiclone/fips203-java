@@ -13,7 +13,7 @@ public class MLKEMCodec implements Codec {
 
     private final ParameterSet parameterSet;
 
-    public static MLKEMCodec build(ParameterSet parameterSet) {
+    public static MLKEMCodec create(ParameterSet parameterSet) {
         return new MLKEMCodec(parameterSet);
     }
 

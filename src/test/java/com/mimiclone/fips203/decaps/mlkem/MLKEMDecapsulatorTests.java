@@ -1,9 +1,13 @@
-package com.mimiclone.fips203.encaps.mlkem;
+package com.mimiclone.fips203.decaps.mlkem;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mimiclone.fips203.ParameterSet;
-import com.mimiclone.fips203.encaps.Encapsulation;
-import com.mimiclone.fips203.key.mlkem.MLKEMEncapsulationKey;
+import com.mimiclone.fips203.decaps.Decapsulator;
+import com.mimiclone.fips203.key.DecapsulationKey;
+import com.mimiclone.fips203.key.SharedSecretKey;
+import com.mimiclone.fips203.key.mlkem.MLKEMDecapsulationKey;
+import com.mimiclone.fips203.message.CipherText;
+import com.mimiclone.fips203.message.MLKEMCipherText;
 import com.mimiclone.harness.TestCase;
 import com.mimiclone.harness.TestGroup;
 import com.mimiclone.harness.TestPrompt;
@@ -18,7 +22,7 @@ import java.util.Objects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class MLKEMEncapsulatorTests {
+public class MLKEMDecapsulatorTests {
 
     private TestPrompt prompt;
 
@@ -28,7 +32,7 @@ public class MLKEMEncapsulatorTests {
         var objectMapper = new ObjectMapper();
 
         // Load the JSON test prompts
-        try (InputStream inputStream = MLKEMEncapsulatorTests.class.getResourceAsStream(fromResource)) {
+        try (InputStream inputStream = MLKEMDecapsulatorTests.class.getResourceAsStream(fromResource)) {
             if (inputStream == null) {
                 throw new IOException("Could not find " + fromResource);
             }
@@ -48,37 +52,33 @@ public class MLKEMEncapsulatorTests {
     private void execTestCase(ParameterSet params, TestCase testCase) {
 
         // Create keygen under test
-        MLKEMEncapsulator mlKemEncapsulator = MLKEMEncapsulator.create(params);
+        Decapsulator mlKemDecapsulator = MLKEMDecapsulator.create(params);
 
         // Print header
         System.out.printf("%n[Test Case %d] using %s Parameter Set:%n", testCase.getTcId(), params.getName());
 
-        // Inputs
-        byte[] inputEK = HexFormat.of().parseHex((String) testCase.getValues().get("ek"));
-        byte[] inputM = HexFormat.of().parseHex((String) testCase.getValues().get("m"));
+        // Input Bytes
+        byte[] inputDK = HexFormat.of().parseHex((String) testCase.getValues().get("dk"));
+        byte[] inputC = HexFormat.of().parseHex((String) testCase.getValues().get("c"));
 
-        // Outputs
-        byte[] expectedC = HexFormat.of().parseHex((String) testCase.getValues().get("c"));
+        // Output Bytes
         byte[] expectedK = HexFormat.of().parseHex((String) testCase.getValues().get("k"));
 
-        // Generate the encapsulation
-        Encapsulation encapsulation = mlKemEncapsulator.encapsulate(MLKEMEncapsulationKey.create(inputEK), inputM);
+        // Wrap raw inputs
+        DecapsulationKey decapsulationKey = MLKEMDecapsulationKey.create(inputDK);
+        CipherText cipherText = MLKEMCipherText.create(inputC);
 
-        assertNotNull(encapsulation);
-        assertNotNull(encapsulation.getCipherText());
-        assertNotNull(encapsulation.getSharedSecretKey());
+        // Generate the encapsulation
+        SharedSecretKey sharedSecretKey = mlKemDecapsulator.decapsulate(decapsulationKey, cipherText);
+
+        assertNotNull(sharedSecretKey);
+        assertNotNull(sharedSecretKey.getBytes());
 
         // Extract the shared secret
-        byte[] sharedSecret = encapsulation.getSharedSecretKey().getBytes();
+        byte[] sharedSecret = sharedSecretKey.getBytes();
 
         // Verify it is the expected length
         assertEquals(params.getSharedSecretKeyLength(), sharedSecret.length);
-
-        // Extract the cipherText
-        byte[] cipherText = encapsulation.getCipherText().getBytes();
-
-        // Verify it is the expected length
-        assertEquals(params.getCiphertextLength(), cipherText.length);
 
         // Iterate through each byte and validate they are the same
         System.out.printf(" -- Shared Secret Key%n");
@@ -87,28 +87,27 @@ public class MLKEMEncapsulatorTests {
         for (int i = 0; i < params.getSharedSecretKeyLength(); i++) {
             assertEquals(expectedK[i], sharedSecret[i]);
         }
-
-        // Iterate through each byte and validate they are the same
-        System.out.printf(" -- CipherText%n");
-        System.out.printf("   --> Expect: %s%n", HexFormat.of().formatHex(expectedC));
-        System.out.printf("   --> Actual: %s%n", HexFormat.of().formatHex(cipherText));
-        for (int i = 0; i < params.getCiphertextLength(); i++) {
-            assertEquals(expectedC[i], cipherText[i]);
-        }
     }
 
     @Test
-    public void mlKem512EncapsTest() {
+    public void mlKem512DecapsTest() {
 
         ParameterSet params = ParameterSet.ML_KEM_512;
 
         for (TestGroup testGroup: prompt.getTestGroups()) {
             if (Objects.equals(testGroup.getParameterSet(), params.getName())
-                && Objects.equals(testGroup.getFunction(), "encapsulation")
+                && Objects.equals(testGroup.getFunction(), "decapsulation")
             ) {
                 System.out.printf("Group %d using %s Parameter Set:%n", testGroup.getTgId(), params.getName());
                 for (TestCase testCase : testGroup.getTests()) {
+
+                    // Load shared ek and dk from group level
+                    testCase.getValues().put("ek", testGroup.getEk());
+                    testCase.getValues().put("dk", testGroup.getDk());
+
+                    // Execute test case
                     execTestCase(params, testCase);
+
                 }
             }
         }
@@ -116,17 +115,24 @@ public class MLKEMEncapsulatorTests {
     }
 
     @Test
-    public void mlKem768EncapsTest() {
+    public void mlKem768DecapsTest() {
 
         ParameterSet params = ParameterSet.ML_KEM_768;
 
         for (TestGroup testGroup: prompt.getTestGroups()) {
             if (Objects.equals(testGroup.getParameterSet(), params.getName())
-                    && Objects.equals(testGroup.getFunction(), "encapsulation")
+                    && Objects.equals(testGroup.getFunction(), "decapsulation")
             ) {
                 System.out.printf("Group %d using %s Parameter Set:%n", testGroup.getTgId(), params.getName());
                 for (TestCase testCase : testGroup.getTests()) {
+
+                    // Load shared ek and dk from group level
+                    testCase.getValues().put("ek", testGroup.getEk());
+                    testCase.getValues().put("dk", testGroup.getDk());
+
+                    // Execute test case
                     execTestCase(params, testCase);
+
                 }
             }
         }
@@ -134,17 +140,24 @@ public class MLKEMEncapsulatorTests {
     }
 
     @Test
-    public void mlKem1024EncapsTest() {
+    public void mlKem1024DecapsTest() {
 
         ParameterSet params = ParameterSet.ML_KEM_1024;
 
         for (TestGroup testGroup: prompt.getTestGroups()) {
             if (Objects.equals(testGroup.getParameterSet(), params.getName())
-                    && Objects.equals(testGroup.getFunction(), "encapsulation")
+                    && Objects.equals(testGroup.getFunction(), "decapsulation")
             ) {
                 System.out.printf("Group %d using %s Parameter Set:%n", testGroup.getTgId(), params.getName());
                 for (TestCase testCase : testGroup.getTests()) {
+
+                    // Load shared ek and dk from group level
+                    testCase.getValues().put("ek", testGroup.getEk());
+                    testCase.getValues().put("dk", testGroup.getDk());
+
+                    // Execute test case
                     execTestCase(params, testCase);
+
                 }
             }
         }

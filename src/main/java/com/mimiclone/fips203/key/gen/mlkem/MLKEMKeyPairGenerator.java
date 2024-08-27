@@ -34,10 +34,10 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
     public static MLKEMKeyPairGenerator create(ParameterSet parameterSet) {
         return new MLKEMKeyPairGenerator(
                 parameterSet,
-                MLKEMCodec.build(parameterSet),
+                MLKEMCodec.create(parameterSet),
                 MLKEMHash.create(parameterSet),
                 MLKEMSampler.create(parameterSet),
-                MLKEMNumberTheoreticTransform.fips203(parameterSet)
+                MLKEMNumberTheoreticTransform.create(parameterSet)
         );
     }
 
