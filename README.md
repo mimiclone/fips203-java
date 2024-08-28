@@ -4,6 +4,7 @@ which was released on August 13, 2024 https://csrc.nist.gov/pubs/fips/203/final
 
 # Warning
 
+## This implementation is still under development and is not currently secure against timing side-channel leaks
 _While this implementation conforms with the algorithm specifications and passes tests with NIST-provided test vectors,
 it has not been certified by any NIST certified testing lab and should not be used in production systems or by government
 agencies that need to comply with the standard_
