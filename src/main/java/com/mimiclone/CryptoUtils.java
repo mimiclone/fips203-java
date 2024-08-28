@@ -2,6 +2,7 @@ package com.mimiclone;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 
 public class CryptoUtils {
 
@@ -26,6 +27,26 @@ public class CryptoUtils {
 
     }
 
+    public static void zero(byte[] toZero) {
+        Arrays.fill(toZero, (byte) 0);
+    }
 
+    public static void zero(int[] toZero) {
+        Arrays.fill(toZero, (byte) 0);
+    }
+
+    public static void zero(int[][] toZero) {
+        for (int[] ints: toZero) {
+            Arrays.fill(ints, (byte) 0);
+        }
+    }
+
+    public static void zero(int[][][] toZero) {
+        for (int[][] ints : toZero) {
+            for (int[] anInt : ints) {
+                Arrays.fill(anInt, (byte) 0);
+            }
+        }
+    }
 
 }

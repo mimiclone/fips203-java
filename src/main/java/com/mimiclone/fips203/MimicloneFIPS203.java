@@ -5,7 +5,10 @@ import com.mimiclone.fips203.decaps.mlkem.MLKEMDecapsulator;
 import com.mimiclone.fips203.encaps.Encapsulation;
 import com.mimiclone.fips203.encaps.Encapsulator;
 import com.mimiclone.fips203.encaps.mlkem.MLKEMEncapsulator;
-import com.mimiclone.fips203.key.*;
+import com.mimiclone.fips203.key.DecapsulationKey;
+import com.mimiclone.fips203.key.EncapsulationKey;
+import com.mimiclone.fips203.key.KeyPair;
+import com.mimiclone.fips203.key.SharedSecretKey;
 import com.mimiclone.fips203.key.check.KeyPairCheckException;
 import com.mimiclone.fips203.key.gen.KeyPairGeneration;
 import com.mimiclone.fips203.key.gen.KeyPairGenerationException;
@@ -17,28 +20,18 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.SecureRandomParameters;
 
+import static com.mimiclone.CryptoUtils.zero;
+
 public class MimicloneFIPS203 implements FIPS203 {
-
-    // Global constant n denoting the standard block size in bits
-    // Defined in section 2.4 of the FIPS203 Specification
-    public static final int N = 256;
-
-    // Global constant q denoting the prime integer 3329 = 2^8 * 13 + 1
-    // Defined in section 2.4 of the FIPS203 Specification
-    public static final int Q = 3329;
 
     // Secure RBG algorithm set name
     private static final String SECURE_RBG_ALGO = "DRBG";
 
     // FIPS 203 Parameter Set assigned
     private final ParameterSet parameterSet;
-
     private final SecureRandom secureRandom;
-
     private final KeyPairGeneration keyPairGenerator;
-
     private final Encapsulator encapsulator;
-
     private final Decapsulator decapsulator;
 
     MimicloneFIPS203(ParameterSet parameterSet) {
@@ -100,8 +93,16 @@ public class MimicloneFIPS203 implements FIPS203 {
         // for them to be null.  Checking would raise a compiler error
 
         // Invoke Key Generation
-        KeyPairGeneration keyGeneration = MLKEMKeyPairGenerator.create(parameterSet);
-        return keyGeneration.generateKeyPair(d, z);
+        KeyPair keyPair = keyPairGenerator.generateKeyPair(d, z);
+
+        // ZERO: d
+        zero(d);
+
+        // ZERO: z
+        zero(z);
+
+        // Return wrapped KeyPair
+        return keyPair;
 
     }
 
@@ -131,15 +132,22 @@ public class MimicloneFIPS203 implements FIPS203 {
         byte[] m = new byte[32];
         secureRandom.nextBytes(m);
 
-        // The spec requires a null check here for m, but Java is designed such that it isn't possible for them to
-        // be null.
+        // The spec requires a null check here for m, but Java is designed such that this isn't possible.
 
-        return encapsulator.encapsulate(key, m);
+        // Perform the encapsulation
+        Encapsulation encapsulation = encapsulator.encapsulate(key, m); // LAST USE: m
+
+        // ZERO: m
+        zero(m);
+
+        // Return wrapped result value
+        return encapsulation;
+
     }
 
     /**
      * Implements Algorithm 21 (ML-KEM.Decaps) of the FIPS203 Specification.
-     * No randomness is generated so this is a simple passthrough to the internal implementation.
+     * No randomness is generated so this is a simple pass-through to the internal implementation.
      *
      * @param key
      * @param cipherText

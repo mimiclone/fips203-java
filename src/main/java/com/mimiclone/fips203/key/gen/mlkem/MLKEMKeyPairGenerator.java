@@ -1,11 +1,11 @@
 package com.mimiclone.fips203.key.gen.mlkem;
 
+import com.mimiclone.fips203.ParameterSet;
 import com.mimiclone.fips203.codec.Codec;
 import com.mimiclone.fips203.codec.MLKEMCodec;
 import com.mimiclone.fips203.hash.Hash;
 import com.mimiclone.fips203.hash.MLKEMHash;
 import com.mimiclone.fips203.key.KeyPair;
-import com.mimiclone.fips203.ParameterSet;
 import com.mimiclone.fips203.key.gen.KeyPairGeneration;
 import com.mimiclone.fips203.key.gen.KeyPairGenerationException;
 import com.mimiclone.fips203.key.mlkem.MLKEMKeyPair;
@@ -17,6 +17,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
 import java.nio.ByteBuffer;
+
+import static com.mimiclone.CryptoUtils.zero;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
@@ -52,41 +54,67 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
     @Override
     public KeyPair generateKeyPair(byte[] d, byte[] z) {
 
-        // Ensure d exists and is 32 bytes long
-        if (d == null || d.length != 32) {
-            throw new KeyPairGenerationException("Entropy source 'd' must be 32 bytes");
+        // Ensure d, z exist and are 32 bytes long
+        if (d == null || d.length != 32 || z == null || z.length != 32) {
+            throw new KeyPairGenerationException("Entropy sources 'd' and 'z' must be 32 bytes");
         }
 
-        // Ensure z exists and is 32 bytes long
-        if (z == null || z.length != 32) {
-            throw new KeyPairGenerationException("Entropy source 'z' must be 32 bytes");
-        }
+        // It is the responsibility of the caller to destroy the memory they passed in by reference.
+        // We will only work on local copies, which will be destroyed after last use.
+        byte[] dLocal = d.clone();
+        byte[] zLocal = z.clone();
 
         // Call K-PKE.KeyGen
-        KeyPair baseKeyPair = generateKPKE(d);
+        KeyPair baseKeyPair = generateKPKE(dLocal); // LAST USE: dLocal
+
+        // ZERO: dLocal
+        zero(dLocal);
 
         // Retrieve bytes array for the pke keys
         byte[] ekPKE = baseKeyPair.getEncapsulationKey().getBytes();
-        byte[] dkPKE = baseKeyPair.getDecapsulationKey().getBytes();
+        byte[] dkPKE = baseKeyPair.getDecapsulationKey().getBytes(); // LAST USE: baseKeyPair
+
+        // ZERO: baseKeyPair
+        baseKeyPair.getEncapsulationKey().destroy();
+        baseKeyPair.getDecapsulationKey().destroy();
 
         // Hash the encapsulation key
         byte[] ekHash = hash.hHash(ekPKE);
 
-        // Calculate byte length of decaps key components
-        int dkResultLength = dkPKE.length + ekPKE.length + ekHash.length + z.length;
-
         // Allocate byte array for composite decaps key
-        byte[] dkResult = new byte[dkResultLength];
+        byte[] dkResult = new byte[dkPKE.length + ekPKE.length + ekHash.length + zLocal.length];
+
+        // Wrap in a buffer to fill and fill the result
+        // It doesn't matter if the ByteBuffer wrapper sticks around in memory as long as the wrapped memory is cleared.
         ByteBuffer dkResultBuffer = ByteBuffer.wrap(dkResult);
         dkResultBuffer.put(dkPKE)
                 .put(ekPKE)
-                .put(ekHash)
-                .put(z);
+                .put(ekHash) // LAST USE: ekHash
+                .put(zLocal); // LAST USE: zLocal
+
+        // ZERO: ekHash
+        zero(ekHash);
+
+        // ZERO: zLocal
+        zero(zLocal);
 
         // Create result keypair
         // The implementation itself will make a copy of the key bytes, so we don't need to
         // worry about it being modified by outside code.
-        return MLKEMKeyPair.fromBytes(ekPKE, dkResult);
+        KeyPair keyPair = MLKEMKeyPair.fromBytes(ekPKE, dkResult);  // LAST USE: ekPKE, dkResult
+
+        // ZERO: dkResult
+        zero(dkResult);
+
+        // ZERO: ekPKE
+        zero(ekPKE);
+
+        // ZERO: dkPKE
+        zero(dkPKE);
+
+        // Return result value
+        // Caller is responsible for destroying the KeyPair once they are done
+        return keyPair;
 
     }
 
@@ -105,6 +133,10 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
             throw new KeyPairGenerationException("Entropy source 'd' must be 32 bytes");
         }
 
+        // It is the responsibility of the caller to destroy the memory they passed in by reference.
+        // We will only work on local copies, which will be destroyed after last use.
+        byte[] dLocal = d.clone();
+
         // Get k as a byte value from parameter set
         int k = parameterSet.getK();
         byte[] kb = { (byte) k };
@@ -112,11 +144,21 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
         // 1: Expand 32 + 1 bytes to two pseudorandom 32-byte seeds
         byte[] dk = new byte[33];
         ByteBuffer buffer = ByteBuffer.wrap(dk);
-        buffer.put(d);
-        buffer.put(kb);
+        buffer.put(dLocal); // LAST USE: dLocal
+        buffer.put(kb); // LAST USE: kb
+
+        // ZERO: dLocal
+        zero(dLocal);
+
+        // ZERO: kb
+        zero(kb);
 
         // Generate the combined seeds
-        byte[] rhoAndSigma = hash.gHash(dk);
+        byte[] rhoAndSigma = hash.gHash(dk); // LAST USE: dk
+
+        // ZERO: dk
+        zero(dk);
+
         if (rhoAndSigma == null || rhoAndSigma.length != 64) {
             throw new KeyPairGenerationException("Unable to generate 'rho' and 'sigma' 32-byte seed values");
         }
@@ -130,7 +172,10 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
 
         // Split out sigma
         byte[] sigma = new byte[32];
-        rhoAndSigmaBuffer.get(sigma);
+        rhoAndSigmaBuffer.get(sigma); // LAST USE: rhoAndSigma
+
+        // ZERO: rhoAndSigma
+        zero(rhoAndSigma);
 
         int n = 0;
 
@@ -160,17 +205,27 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
         // Calculate sHat
         int[][] sHat = new int[k][256];
         for (int i = 0; i < k; i++) {
-            sHat[i] = ntt.transform(s[i]);
+            sHat[i] = ntt.transform(s[i]); // LAST USE: s
         }
+
+        // ZERO: s
+        zero(s);
 
         // Calculate eHat
         int[][] eHat = new int[k][256];
         for (int i = 0; i < k; i++) {
-            eHat[i] = ntt.transform(e[i]);
+            eHat[i] = ntt.transform(e[i]); // LAST USE: e
         }
 
+        // ZERO: e
+        zero(e);
+
         // Noisy linear system in NTT domain
-        int[][] tHat = ntt.matrixAdd(ntt.matrixMultiply(aHatMatrix, sHat), eHat);
+        int[][] tHat = ntt.matrixAdd(ntt.matrixMultiply(aHatMatrix, sHat), eHat); // LAST USE: aHatMatrix, eHat
+
+        // ZERO: aHatMatrix, eHat
+        zero(aHatMatrix);
+        zero(eHat);
 
         // ByteEncode ekPKE and append rho
         byte[] ekPKE = new byte[384*k+32];
@@ -178,17 +233,33 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
         for (int i = 0; i < k; i++) {
             ekPKEBuffer.put(codec.byteEncode(12, tHat[i]));
         }
-        ekPKEBuffer.put(rho);
+        ekPKEBuffer.put(rho); // LAST USE: rho
+
+        // ZERO: rho
+        zero(rho);
 
         // ByteEncode dkPKE
         byte[] dkPKE = new byte[384*k];
         ByteBuffer dkPKEBuffer = ByteBuffer.wrap(dkPKE);
         for (int i = 0; i < k; i++) {
-            dkPKEBuffer.put(codec.byteEncode(12, sHat[i]));
+            dkPKEBuffer.put(codec.byteEncode(12, sHat[i])); // LAST USE: sHat
         }
 
-        // Create and return the wrapped KeyPair
-        return MLKEMKeyPair.fromBytes(ekPKE, dkPKE);
+        // ZERO: sHat
+        zero(sHat);
+
+        // Create and a result object wrapping the keypair
+        // This will make copies of the byte arrays, and we will destroy the originals
+        KeyPair keyPair = MLKEMKeyPair.fromBytes(ekPKE, dkPKE); // LAST USE: ekPKE, dkPKE
+
+        // ZERO: ekPKE
+        zero(ekPKE);
+
+        // ZERO: dkPKE
+        zero(dkPKE);
+
+        // Return result
+        return keyPair;
     }
 
 }

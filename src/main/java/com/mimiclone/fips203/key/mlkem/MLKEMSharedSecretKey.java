@@ -2,8 +2,9 @@ package com.mimiclone.fips203.key.mlkem;
 
 import com.mimiclone.fips203.key.SharedSecretKey;
 import lombok.AccessLevel;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+
+import java.util.Arrays;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class MLKEMSharedSecretKey implements SharedSecretKey {
@@ -17,5 +18,10 @@ public class MLKEMSharedSecretKey implements SharedSecretKey {
     @Override
     public byte[] getBytes() {
         return sharedSecret.clone();
+    }
+
+    @Override
+    public void destroy() {
+        Arrays.fill(sharedSecret, (byte)0);
     }
 }
