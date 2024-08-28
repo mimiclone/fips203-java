@@ -9,7 +9,7 @@ public class MLKEMCipherText implements CipherText {
     private final byte[] cipherText;
 
     public static MLKEMCipherText create(byte[] cipherText) {
-        return new MLKEMCipherText(cipherText);
+        return new MLKEMCipherText(cipherText.clone());
     }
 
     @Override
