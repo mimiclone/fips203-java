@@ -2,9 +2,8 @@
 Java-based implementation of the final NIST FIPS-203 Standard (Module-Lattice Key Encapsulation Mechanism)
 which was released on August 13, 2024 https://csrc.nist.gov/pubs/fips/203/final
 
-# Warning
-
-## This implementation is still under development and is not currently secure against timing side-channel leaks
+# WARNING: This implementation is currently _insecure_ against memory map and timing side-channel attacks (See Issues #1 and #2).
+## This warning will not be removed until those issues have been remediated and verified by the reporters.
 _While this implementation conforms with the algorithm specifications and passes tests with NIST-provided test vectors,
 it has not been certified by any NIST certified testing lab and should not be used in production systems or by government
 agencies that need to comply with the standard_

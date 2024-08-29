@@ -99,15 +99,6 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         return new MLKEMNumberTheoreticTransform(parameterSet, BigInteger.valueOf(parameterSet.getQ()));
     }
 
-    BigInteger bitRev7(BigInteger n) {
-        BigInteger result = BigInteger.valueOf(0);
-        for (int i = 0; i < 7; i++) {
-            result = (result.shiftLeft(1)).or(n.and(BigInteger.ONE));
-            n = n.shiftRight(1);
-        }
-        return result;
-    }
-
     private void validateInput(int[] input) {
 
         // Validate input is correct length
