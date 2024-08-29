@@ -3,19 +3,15 @@ package com.mimiclone.fips203.transforms;
 import com.mimiclone.fips203.ParameterSet;
 import lombok.RequiredArgsConstructor;
 
-import java.math.BigInteger;
 import java.util.List;
 import java.util.stream.IntStream;
+
+import static com.mimiclone.CryptoUtils.mod;
 
 @RequiredArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
 
     private final ParameterSet parameterSet;
-
-    /**
-     * The modulus base
-     */
-    private final BigInteger q;
 
     private static final int INPUT_OUTPUT_LENGTH = 256;
 
@@ -96,10 +92,12 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
     };
 
     public static MLKEMNumberTheoreticTransform create(ParameterSet parameterSet) {
-        return new MLKEMNumberTheoreticTransform(parameterSet, BigInteger.valueOf(parameterSet.getQ()));
+        return new MLKEMNumberTheoreticTransform(parameterSet);
     }
 
     private void validateInput(int[] input) {
+
+        int q = parameterSet.getQ();
 
         // Validate input is correct length
         if (input == null || input.length != INPUT_OUTPUT_LENGTH) {
@@ -108,7 +106,7 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
 
         // Validate input has properly bounded values in modulo q
         List<Integer> incorrectIndexes = IntStream.range(0, input.length)
-                .filter(i -> input[i] < 0 || input[i] > q.intValue())
+                .filter(i -> input[i] < 0 || input[i] > q)
                 .boxed().toList();
         if (!incorrectIndexes.isEmpty()) {
             throw new IllegalArgumentException("Input values at the following indexes were not in modulo %d: %s".formatted(q, incorrectIndexes));
@@ -125,16 +123,14 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         // This variable is called f-hat in the FIPS203 spec, Algorithm 9, Line 1
         int[] result = input.clone();
 
-
-
         // NOTE: The FIPS203 spec has two outer loops that calculate {@code len} and {@code start} values that are used
         // to modify the inner loop conditions.  It also defines a manually incremented {@code i} loop counter that
         // is used as input to calculate the zeta values.  To improve performance and readability, we have
         // pre-calculated these three values for each iteration of the outer loop and ordered them so we can use
-        // a single outer loop indexed on {@code i} from {@code 0} to {@code 126}.  We use BigInteger in any calculation
-        // involving zeta because the large numbers produced can overflow native integer types prior to the modulus
-        // operation, which brings the resultant value back within the range of {@code 0} to {@code 3329} (known as q).
+        // a single outer loop indexed on {@code i} from {@code 0} to {@code 126}.
         for (int i = 0; i < transformLenVals.length; i++) {
+
+            int q = parameterSet.getQ();
 
             // Retrieve pre-calculated loop values
             int len = transformLenVals[i];
@@ -143,9 +139,9 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
 
             // Core transform loop
             for (int j = start; j < start + len; j++) {
-                int t = BigInteger.valueOf((long) zeta * result[j + len]).mod(q).intValue();
-                result[j + len] = BigInteger.valueOf((long)result[j] - (t)).mod(q).intValue();
-                result[j] = BigInteger.valueOf((long) result[j] + t).mod(q).intValue();
+                int t = mod(zeta * result[j + len], q);
+                result[j + len] = mod(result[j] - t, q);
+                result[j] = mod(result[j] + t, q);
             }
         }
 
@@ -167,9 +163,8 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         // to modify the inner loop conditions.  It also defines a manually decremented {@code i} loop counter that
         // is used as input to calculate the zeta values.  To improve performance and readability, we have
         // pre-calculated these three values for each iteration of the outer loop and ordered them so we can use
-        // a single outer loop indexed on {@code i} from {@code 0} to {@code 126}.  We use BigInteger in any calculation
-        // involving zeta because the large numbers produced can overflow native integer types prior to the modulus
-        // operation, which brings the resultant value back within the range of {@code 0} to {@code 3329} (known as q).
+        // a single outer loop indexed on {@code i} from {@code 0} to {@code 126}.
+        int q = parameterSet.getQ();
         for (int i = 0; i < inverseLenVals.length; i++) {
 
             // Retrieve pre-calculated loop values
@@ -180,8 +175,8 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
             // Core inverse transform loop
             for (int j = start; j < start + len; j++) {
                 int t = result[j];
-                result[j] = BigInteger.valueOf((long)t + result[j + len]).mod(q).intValue();
-                result[j + len] = BigInteger.valueOf((long) zeta * (result[j + len] - t)).mod(q).intValue();
+                result[j] = mod(t + result[j + len], q);
+                result[j + len] = mod(zeta * (result[j + len] - t), q);
             }
         }
 
@@ -189,10 +184,7 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         for (int i = 0; i < result.length; i++) {
 
             // NOTE: The magic number 3303 is defined in the FIPS203 spec as 128^-1.
-            result[i] = BigInteger.valueOf(result[i])
-                    .multiply(BigInteger.valueOf(3303))
-                    .mod(q)
-                    .intValue();
+            result[i] = mod(result[i] * 3303, q);
 
         }
 
@@ -207,12 +199,13 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         int aCols = a[0].length;
 
         int[][] product = new int[aRows][256];
+        int q = parameterSet.getQ();
 
         for (int i = 0; i < aRows; i++) {
             for (int j = 0; j < aCols; j++) {
                 int[] nttProduct = multiplyNTTs(a[i][j], b[j]);
                 for (int k = 0; k < 256; k++) {
-                    product[i][k] = (product[i][k] + nttProduct[k]) % parameterSet.getQ();
+                    product[i][k] = mod(product[i][k] + nttProduct[k], q);
                 }
             }
         }
@@ -227,11 +220,12 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         int cols = a[0].length;
 
         int[][] sum = new int[rows][];
+        int q = parameterSet.getQ();
 
         for (int i = 0; i < rows; i++) {
             sum[i] = new int[cols];
             for (int j = 0; j < cols; j++) {
-                sum[i][j] = (a[i][j] + b[i][j]) % parameterSet.getQ();
+                sum[i][j] = mod(a[i][j] + b[i][j], q);
             }
         }
 
@@ -289,17 +283,20 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
     @Override
     public int[] baseCaseMultiply(int a0, int a1, int b0, int b1, int gamma) {
 
-        BigInteger a = BigInteger.valueOf(a0);
-        BigInteger b = BigInteger.valueOf(a1);
-        BigInteger c = BigInteger.valueOf(b0);
-        BigInteger d = BigInteger.valueOf(b1);
-        BigInteger e = BigInteger.valueOf(gamma);
-        BigInteger q = BigInteger.valueOf(3329);
+        int q = parameterSet.getQ();
 
-        // Perform multiplications using BigInteger to prevent overflow and make modulo arithmetic easier
-        int c0 = a.multiply(c).add(b.multiply(d).multiply(e)).mod(q).intValue();
-        int c1 = a.multiply(d).add( b.multiply(c) ).mod(q).intValue();
+        // Calculate c0
+        int a0b0 = mod(a0 * b0, q);
+        int a1b1 = mod(a1 * b1, q);
+        int a1b1gamma = mod(a1b1 * gamma, q);
+        int c0 = mod(a0b0 + a1b1gamma, q);
 
+        // Calculate c1
+        int a0b1 = mod(a0 * b1, q);
+        int a1b0 = mod(a1 * b0, q);
+        int c1 = mod(a0b1 + a1b0, q);
+
+        // Return compound result
         return new int[]{c0, c1};
 
     }
@@ -318,18 +315,20 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
 
     @Override
     public int[] arrayAdd(int[] a, int[] b) {
+        int q = parameterSet.getQ();
         int[] sum = new int[a.length];
         for (int i = 0; i < a.length; i++) {
-            sum[i] = BigInteger.valueOf(a[i]).add(BigInteger.valueOf(b[i])).mod(BigInteger.valueOf(parameterSet.getQ())).intValue();
+            sum[i] = mod(a[i] + b[i], q);
         }
         return sum;
     }
 
     @Override
     public int[] arraySubtract(int[] a, int[] b) {
+        int q = parameterSet.getQ();
         int[] difference = new int[a.length];
         for (int i = 0; i < a.length; i++) {
-            difference[i] = BigInteger.valueOf(a[i]).subtract(BigInteger.valueOf(b[i])).mod(BigInteger.valueOf(parameterSet.getQ())).intValue();
+            difference[i] = mod(a[i] - b[i], q);
         }
         return difference;
     }
