@@ -3,15 +3,15 @@ package com.mimiclone.fips203.sampler;
 import com.mimiclone.fips202.keccak.core.KeccakSponge;
 import com.mimiclone.fips202.keccak.io.BitInputStream;
 import com.mimiclone.fips202.keccak.io.BitOutputStream;
-import com.mimiclone.fips203.FIPS203Exception;
 import com.mimiclone.fips203.ParameterSet;
 import com.mimiclone.fips203.hash.XOFParameterSet;
 import com.mimiclone.fips203.key.gen.KeyPairGenerationException;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
-import java.math.BigInteger;
 import java.util.BitSet;
+
+import static com.mimiclone.CryptoUtils.mod;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class MLKEMSampler implements Sampler {
@@ -95,7 +95,7 @@ public class MLKEMSampler implements Sampler {
                 y += b.get(2*i*eta + eta + j) ? 1 : 0;
             }
 
-            result[i] = BigInteger.valueOf(x - y).mod(BigInteger.valueOf(parameterSet.getQ())).intValue();
+            result[i] = mod(x - y, parameterSet.getQ());
         }
 
         return result;

@@ -5,8 +5,10 @@ import com.mimiclone.fips203.ParameterSet;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
-import java.math.BigInteger;
 import java.util.BitSet;
+
+import static com.mimiclone.CryptoUtils.mod;
+import static com.mimiclone.CryptoUtils.pow;
 
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class MLKEMCodec implements Codec {
@@ -19,9 +21,12 @@ public class MLKEMCodec implements Codec {
 
 
     /**
+     * Encodes the coefficients of a 256-term polynomial (a module lane) into a packed set of bytes where each
+     * value takes up {@code d} bits that may not align to a byte boundary.
      *
-     * @param f
-     * @return
+     * @param d An {@code int} representing the number of digits to encode
+     * @param f An {@code int} array representing the coefficients of a polynomial (modulo q) in a lane.
+     * @return A {@code byte} array composed of packed polynomial coefficients.
      */
     @Override
     public byte[] byteEncode(int d, int[] f) {
@@ -29,9 +34,6 @@ public class MLKEMCodec implements Codec {
         // Declare bitset
         int bitCapacity = 256 * d;
         BitSet b = new BitSet(bitCapacity);
-
-        // If d < 12, then m = 2^d otherwise m = q
-        BigInteger m = d < 12 ? BigInteger.valueOf(2).pow(d) : BigInteger.valueOf(parameterSet.getQ());
 
         // Iterate over the input array
         for (int i = 0; i < 256; i++) {
@@ -68,16 +70,10 @@ public class MLKEMCodec implements Codec {
 
         // return ((x * d.Exp2() + (_param.Q / 2)) / _param.Q);
 
+        int q = parameterSet.getQ();
         int[] result = new int[x.length];
-        BigInteger bq = BigInteger.valueOf(parameterSet.getQ());
         for (int i = 0; i < x.length; i++) {
-
-            BigInteger bx = BigInteger.valueOf(x[i]);
-            result[i] = bx.multiply(BigInteger.TWO.pow(d))
-                    .add(bq.divide(BigInteger.TWO))
-                    .divide(bq)
-                    .intValue();
-
+            result[i] = ((x[i] * pow(2, d)) + (q >> 1)) / q;
         }
 
         return result;
@@ -86,31 +82,16 @@ public class MLKEMCodec implements Codec {
     @Override
     public int[] byteDecode(int d, byte[] f) {
 
-//        var b = BytesToBits(B);
-//        var F = new int[256];
-//        var m = d == 12 ? _param.Q : d.Exp2();
-//
-//        for (var i = 0; i < 256; i++)
-//        {
-//            for (var j = 0; j < d; j++)
-//            {
-//                F[i] = (F[i] + (b[(i * d) + j] ? j.Exp2() : 0)) % m;
-//            }
-//        }
-//
-//        return F;
-
         BitSet bits = BitSet.valueOf(f);
         int[] result = new int[256];
-        int m = (d == 12) ? parameterSet.getQ() : BigInteger.TWO.pow(d).intValue();
+        int dPow = pow(2, d);
+        int q = parameterSet.getQ();
+        int m = (d == 12) ? q : dPow;
 
         for (int i = 0; i < 256; i++) {
             for (int j = 0; j < d; j++) {
-                result[i] = BigInteger.valueOf(result[i])
-                        .add(
-                                bits.get(i * d + j) ? BigInteger.TWO.pow(j) : BigInteger.ZERO
-                        ).mod(BigInteger.valueOf(m))
-                        .intValue();
+                int jPow = pow(2, j);
+                result[i] = mod(result[i] + (bits.get(i * d + j) ? jPow : 0), m);
             }
         }
 
@@ -120,19 +101,14 @@ public class MLKEMCodec implements Codec {
     @Override
     public int[] decompress(int d, int[] y) {
 
-        // return ((y * _param.Q + (d.Exp2() / 2)) / d.Exp2());
-
         int[] result = new int[y.length];
-        BigInteger bq = BigInteger.valueOf(parameterSet.getQ());
-        BigInteger d2 = BigInteger.TWO.pow(d);
-        BigInteger d2Half = d2.divide(BigInteger.TWO);
+
+        int q = parameterSet.getQ();
+        int d2 = pow(2, d);
+        int d2Half = pow(2, d) >>> 1;
 
         for (int i = 0; i < y.length; i++) {
-            BigInteger by = BigInteger.valueOf(y[i]);
-            result[i] = by.multiply(bq)
-                    .add(d2Half)
-                    .divide(d2)
-                    .intValue();
+            result[i] = (y[i] * q + d2Half) / d2;
         }
 
         return result;

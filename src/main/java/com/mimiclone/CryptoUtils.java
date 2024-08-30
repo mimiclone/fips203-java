@@ -10,6 +10,21 @@ public class CryptoUtils {
             0x0, 0x1, 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F, 0xFF, 0x1FF, 0x3FF, 0x7FF, 0xFFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF
     };
 
+    public static int pow(int base, int exponent) {
+
+        int res = 1;
+        while (exponent > 0)
+        {
+            if ((exponent & 1) == 1)
+                res = res * base;
+
+            // Exponent must be even now
+            exponent = exponent >> 1;
+            base = base * base;
+        }
+        return res;
+    }
+
     public static int mod(int val, int base) {
         return (val % base + base) % base;
     }
