@@ -1,4 +1,4 @@
-package com.mimiclone.fips203.sampler;
+package com.mimiclone.fips203.sample;
 
 import com.mimiclone.fips202.keccak.core.KeccakSponge;
 import com.mimiclone.fips202.keccak.io.BitInputStream;

@@ -1,6 +1,6 @@
-package com.mimiclone.fips203.transforms;
+package com.mimiclone.fips203.transform;
 
-public interface NumberTheoreticTransform {
+public interface Transformer {
 
     /**
      * Performs a number theoretic transform of an array of 256 integers in modulo q=3329

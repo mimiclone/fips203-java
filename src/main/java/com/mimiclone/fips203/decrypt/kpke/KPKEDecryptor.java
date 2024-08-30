@@ -4,8 +4,8 @@ import com.mimiclone.fips203.ParameterSet;
 import com.mimiclone.fips203.codec.Codec;
 import com.mimiclone.fips203.codec.MLKEMCodec;
 import com.mimiclone.fips203.decrypt.Decryptor;
-import com.mimiclone.fips203.transforms.MLKEMNumberTheoreticTransform;
-import com.mimiclone.fips203.transforms.NumberTheoreticTransform;
+import com.mimiclone.fips203.transform.MLKEMTransformer;
+import com.mimiclone.fips203.transform.Transformer;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
@@ -16,13 +16,13 @@ public class KPKEDecryptor implements Decryptor {
 
     private final ParameterSet parameterSet;
     private final Codec codec;
-    private final NumberTheoreticTransform ntt;
+    private final Transformer ntt;
 
     public static KPKEDecryptor create(ParameterSet parameterSet) {
         return new KPKEDecryptor(
                 parameterSet,
                 MLKEMCodec.create(parameterSet),
-                MLKEMNumberTheoreticTransform.create(parameterSet)
+                MLKEMTransformer.create(parameterSet)
         );
     }
 

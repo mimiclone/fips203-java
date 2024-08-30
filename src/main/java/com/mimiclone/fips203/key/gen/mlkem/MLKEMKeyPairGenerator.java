@@ -9,10 +9,10 @@ import com.mimiclone.fips203.key.KeyPair;
 import com.mimiclone.fips203.key.gen.KeyPairGeneration;
 import com.mimiclone.fips203.key.gen.KeyPairGenerationException;
 import com.mimiclone.fips203.key.mlkem.MLKEMKeyPair;
-import com.mimiclone.fips203.sampler.MLKEMSampler;
-import com.mimiclone.fips203.sampler.Sampler;
-import com.mimiclone.fips203.transforms.MLKEMNumberTheoreticTransform;
-import com.mimiclone.fips203.transforms.NumberTheoreticTransform;
+import com.mimiclone.fips203.sample.MLKEMSampler;
+import com.mimiclone.fips203.sample.Sampler;
+import com.mimiclone.fips203.transform.MLKEMTransformer;
+import com.mimiclone.fips203.transform.Transformer;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
@@ -31,7 +31,7 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
 
     final Sampler sampler;
 
-    final NumberTheoreticTransform ntt;
+    final Transformer ntt;
 
     public static MLKEMKeyPairGenerator create(ParameterSet parameterSet) {
         return new MLKEMKeyPairGenerator(
@@ -39,7 +39,7 @@ public final class MLKEMKeyPairGenerator implements KeyPairGeneration {
                 MLKEMCodec.create(parameterSet),
                 MLKEMHash.create(parameterSet),
                 MLKEMSampler.create(parameterSet),
-                MLKEMNumberTheoreticTransform.create(parameterSet)
+                MLKEMTransformer.create(parameterSet)
         );
     }
 

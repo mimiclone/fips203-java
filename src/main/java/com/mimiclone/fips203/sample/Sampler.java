@@ -1,4 +1,4 @@
-package com.mimiclone.fips203.sampler;
+package com.mimiclone.fips203.sample;
 
 public interface Sampler {
 

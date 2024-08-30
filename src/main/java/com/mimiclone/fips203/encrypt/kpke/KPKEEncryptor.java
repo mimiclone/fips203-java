@@ -6,10 +6,10 @@ import com.mimiclone.fips203.codec.MLKEMCodec;
 import com.mimiclone.fips203.encrypt.Encryptor;
 import com.mimiclone.fips203.hash.Hash;
 import com.mimiclone.fips203.hash.MLKEMHash;
-import com.mimiclone.fips203.sampler.MLKEMSampler;
-import com.mimiclone.fips203.sampler.Sampler;
-import com.mimiclone.fips203.transforms.MLKEMNumberTheoreticTransform;
-import com.mimiclone.fips203.transforms.NumberTheoreticTransform;
+import com.mimiclone.fips203.sample.MLKEMSampler;
+import com.mimiclone.fips203.sample.Sampler;
+import com.mimiclone.fips203.transform.MLKEMTransformer;
+import com.mimiclone.fips203.transform.Transformer;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
@@ -22,7 +22,7 @@ public class KPKEEncryptor implements Encryptor {
     private final Codec codec;
     private final Hash hash;
     private final Sampler sampler;
-    private final NumberTheoreticTransform ntt;
+    private final Transformer ntt;
 
     public static KPKEEncryptor create(ParameterSet parameterSet) {
         return new KPKEEncryptor(
@@ -30,7 +30,7 @@ public class KPKEEncryptor implements Encryptor {
                 MLKEMCodec.create(parameterSet),
                 MLKEMHash.create(parameterSet),
                 MLKEMSampler.create(parameterSet),
-                MLKEMNumberTheoreticTransform.create(parameterSet)
+                MLKEMTransformer.create(parameterSet)
         );
     }
 

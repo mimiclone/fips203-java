@@ -1,17 +1,18 @@
-package com.mimiclone.fips203.transforms;
+package com.mimiclone.fips203.transform;
 
 import com.mimiclone.fips203.ParameterSet;
+import com.mimiclone.fips203.reduce.Reducer;
+import com.mimiclone.fips203.reduce.barrett.BarrettReducer;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static com.mimiclone.CryptoUtils.mod;
-
 @RequiredArgsConstructor(access = lombok.AccessLevel.PRIVATE)
-public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
+public class MLKEMTransformer implements Transformer {
 
     private final ParameterSet parameterSet;
+    private final Reducer reducer;
 
     private static final int INPUT_OUTPUT_LENGTH = 256;
 
@@ -91,8 +92,11 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
             2110, -2110, 2935, -2935, 885, -885, 2154, -2154
     };
 
-    public static MLKEMNumberTheoreticTransform create(ParameterSet parameterSet) {
-        return new MLKEMNumberTheoreticTransform(parameterSet);
+    public static MLKEMTransformer create(ParameterSet parameterSet) {
+        return new MLKEMTransformer(
+                parameterSet,
+                BarrettReducer.create(parameterSet)
+        );
     }
 
     private void validateInput(int[] input) {
@@ -130,8 +134,6 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         // a single outer loop indexed on {@code i} from {@code 0} to {@code 126}.
         for (int i = 0; i < transformLenVals.length; i++) {
 
-            int q = parameterSet.getQ();
-
             // Retrieve pre-calculated loop values
             int len = transformLenVals[i];
             int start = transformStartVals[i];
@@ -139,9 +141,9 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
 
             // Core transform loop
             for (int j = start; j < start + len; j++) {
-                int t = mod(zeta * result[j + len], q);
-                result[j + len] = mod(result[j] - t, q);
-                result[j] = mod(result[j] + t, q);
+                int t = reducer.reduce(zeta * result[j + len]);
+                result[j + len] = reducer.reduce(result[j] - t);
+                result[j] = reducer.reduce(result[j] + t);
             }
         }
 
@@ -164,7 +166,6 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         // is used as input to calculate the zeta values.  To improve performance and readability, we have
         // pre-calculated these three values for each iteration of the outer loop and ordered them so we can use
         // a single outer loop indexed on {@code i} from {@code 0} to {@code 126}.
-        int q = parameterSet.getQ();
         for (int i = 0; i < inverseLenVals.length; i++) {
 
             // Retrieve pre-calculated loop values
@@ -175,8 +176,8 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
             // Core inverse transform loop
             for (int j = start; j < start + len; j++) {
                 int t = result[j];
-                result[j] = mod(t + result[j + len], q);
-                result[j + len] = mod(zeta * (result[j + len] - t), q);
+                result[j] = reducer.reduce(t + result[j + len]);
+                result[j + len] = reducer.reduce(zeta * (result[j + len] - t));
             }
         }
 
@@ -184,7 +185,7 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         for (int i = 0; i < result.length; i++) {
 
             // NOTE: The magic number 3303 is defined in the FIPS203 spec as 128^-1.
-            result[i] = mod(result[i] * 3303, q);
+            result[i] = reducer.reduce(result[i] * 3303);
 
         }
 
@@ -199,13 +200,12 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         int aCols = a[0].length;
 
         int[][] product = new int[aRows][256];
-        int q = parameterSet.getQ();
 
         for (int i = 0; i < aRows; i++) {
             for (int j = 0; j < aCols; j++) {
                 int[] nttProduct = multiplyNTTs(a[i][j], b[j]);
                 for (int k = 0; k < 256; k++) {
-                    product[i][k] = mod(product[i][k] + nttProduct[k], q);
+                    product[i][k] = reducer.reduce(product[i][k] + nttProduct[k]);
                 }
             }
         }
@@ -220,12 +220,11 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
         int cols = a[0].length;
 
         int[][] sum = new int[rows][];
-        int q = parameterSet.getQ();
 
         for (int i = 0; i < rows; i++) {
             sum[i] = new int[cols];
             for (int j = 0; j < cols; j++) {
-                sum[i][j] = mod(a[i][j] + b[i][j], q);
+                sum[i][j] = reducer.reduce(a[i][j] + b[i][j]);
             }
         }
 
@@ -283,18 +282,16 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
     @Override
     public int[] baseCaseMultiply(int a0, int a1, int b0, int b1, int gamma) {
 
-        int q = parameterSet.getQ();
-
         // Calculate c0
-        int a0b0 = mod(a0 * b0, q);
-        int a1b1 = mod(a1 * b1, q);
-        int a1b1gamma = mod(a1b1 * gamma, q);
-        int c0 = mod(a0b0 + a1b1gamma, q);
+        int a0b0 = reducer.reduce(a0 * b0);
+        int a1b1 = reducer.reduce(a1 * b1);
+        int a1b1gamma = reducer.reduce(a1b1 * gamma);
+        int c0 = reducer.reduce(a0b0 + a1b1gamma);
 
         // Calculate c1
-        int a0b1 = mod(a0 * b1, q);
-        int a1b0 = mod(a1 * b0, q);
-        int c1 = mod(a0b1 + a1b0, q);
+        int a0b1 = reducer.reduce(a0 * b1);
+        int a1b0 = reducer.reduce(a1 * b0);
+        int c1 = reducer.reduce(a0b1 + a1b0);
 
         // Return compound result
         return new int[]{c0, c1};
@@ -315,20 +312,18 @@ public class MLKEMNumberTheoreticTransform implements NumberTheoreticTransform {
 
     @Override
     public int[] arrayAdd(int[] a, int[] b) {
-        int q = parameterSet.getQ();
         int[] sum = new int[a.length];
         for (int i = 0; i < a.length; i++) {
-            sum[i] = mod(a[i] + b[i], q);
+            sum[i] = reducer.reduce(a[i] + b[i]);
         }
         return sum;
     }
 
     @Override
     public int[] arraySubtract(int[] a, int[] b) {
-        int q = parameterSet.getQ();
         int[] difference = new int[a.length];
         for (int i = 0; i < a.length; i++) {
-            difference[i] = mod(a[i] - b[i], q);
+            difference[i] = reducer.reduce(a[i] - b[i]);
         }
         return difference;
     }
