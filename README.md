@@ -2,8 +2,7 @@
 Java-based implementation of the final NIST FIPS-203 Standard (Module-Lattice Key Encapsulation Mechanism)
 which was released on August 13, 2024 https://csrc.nist.gov/pubs/fips/203/final
 
-# WARNING: This implementation is currently _insecure_ against memory map and timing side-channel attacks (See Issues #1 and #2).
-## This warning will not be removed until those issues have been remediated and verified by the reporters.
+# WARNING: This implementation may be susceptible to unknown side-channel attacks.
 _While this implementation conforms with the algorithm specifications and passes tests with NIST-provided test vectors,
 it has not been certified by any NIST certified testing lab and should not be used in production systems or by government
 agencies that need to comply with the standard_
@@ -47,13 +46,13 @@ only initialization parameter needed.
     import com.mimiclone.fips203.ParameterSet;
     
     // For ML_KEM_512
-    FIPS203 fips203 = MimicloneFIPS203(ParameterSet.ML_KEM_512);
+    FIPS203 fips203 = MimicloneFIPS203.create(ParameterSet.ML_KEM_512);
 
     // For ML_KEM_768
-    FIPS203 fips203 = MimicloneFIPS203(ParameterSet.ML_KEM_768);
+    FIPS203 fips203 = MimicloneFIPS203.create(ParameterSet.ML_KEM_768);
     
     // For ML_KEM_1024
-    FIPS203 fips203 = MimicloneFIPS203(ParameterSet.ML_KEM_1024);
+    FIPS203 fips203 = MimicloneFIPS203.create(ParameterSet.ML_KEM_1024);
 ```
 
 ### Key Pair Generation

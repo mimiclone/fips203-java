@@ -23,8 +23,10 @@ public class MLKEMCodec implements Codec {
     /**
      * Encodes the coefficients of a 256-term polynomial (a module lane) into a packed set of bytes where each
      * value takes up {@code d} bits that may not align to a byte boundary.
+     * Note that while the algorithm accepts any value {@code d} from 1 to 12, it is realistically only used
+     * for the values 1, 12 and the Du and Dv values from the given parameter set.
      *
-     * @param d An {@code int} representing the number of digits to encode
+     * @param d An {@code int} representing the number of digits to encode.
      * @param f An {@code int} array representing the coefficients of a polynomial (modulo q) in a lane.
      * @return A {@code byte} array composed of packed polynomial coefficients.
      */
@@ -47,7 +49,7 @@ public class MLKEMCodec implements Codec {
                 // Calculate the bit index for the operation
                 int bitIndex = i * d + j;
 
-                // b[i*d+j] = a mod 2 = LSB(a)
+                // Set the bit at the calculated bit index to a mod 2 which is the least significant bit of a
                 b.set(bitIndex, (a & CryptoUtils.INT_BIT_MASKS[1]) != 0);
 
                 // Update a

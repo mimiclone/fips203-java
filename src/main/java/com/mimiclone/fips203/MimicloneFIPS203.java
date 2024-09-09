@@ -24,6 +24,10 @@ import static com.mimiclone.CryptoUtils.zero;
 
 public class MimicloneFIPS203 implements FIPS203 {
 
+    public static FIPS203 create(ParameterSet params) {
+        return new MimicloneFIPS203(params);
+    }
+
     // Secure RBG algorithm set name
     private static final String SECURE_RBG_ALGO = "DRBG";
 
@@ -34,7 +38,7 @@ public class MimicloneFIPS203 implements FIPS203 {
     private final Encapsulator encapsulator;
     private final Decapsulator decapsulator;
 
-    MimicloneFIPS203(ParameterSet parameterSet) {
+    private MimicloneFIPS203(ParameterSet parameterSet) {
 
         // Assign the chosen parameter set
         this.parameterSet = parameterSet;

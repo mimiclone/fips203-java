@@ -3,7 +3,6 @@ plugins {
     id 'idea'
     id 'java-library'
     id 'maven-publish'
-    id 'signing'
 }
 
 group = 'com.mimiclone'
@@ -46,10 +45,6 @@ configurations {
 repositories {
     mavenLocal()
     mavenCentral()
-}
-
-signing {
-    sign publishing.publications.mavenJava
 }
 
 

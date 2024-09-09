@@ -177,7 +177,7 @@ public class FIPS203Tests {
 
         // Validate the Parameter Set
         ParameterSet parameterSet = ParameterSet.ML_KEM_512;
-        FIPS203 fips203MlKem512 = new MimicloneFIPS203(parameterSet);
+        FIPS203 fips203MlKem512 = MimicloneFIPS203.create(parameterSet);
         assertEquals(parameterSet, fips203MlKem512.getParameterSet());
 
         // Validate Key Pair Generation
@@ -212,7 +212,7 @@ public class FIPS203Tests {
 
         // Validate the Parameter Set
         ParameterSet parameterSet = ParameterSet.ML_KEM_768;
-        FIPS203 fips203MlKem768 = new MimicloneFIPS203(parameterSet);
+        FIPS203 fips203MlKem768 = MimicloneFIPS203.create(parameterSet);
         assertEquals(parameterSet, fips203MlKem768.getParameterSet());
 
         // Validate Key Pair Generation
@@ -244,11 +244,18 @@ public class FIPS203Tests {
 
         // Validate the Parameter Set
         ParameterSet parameterSet = ParameterSet.ML_KEM_1024;
-        FIPS203 fips203MlKem1024 = new MimicloneFIPS203(parameterSet);
+        FIPS203 fips203MlKem1024 = MimicloneFIPS203.create(parameterSet);
         assertEquals(parameterSet, fips203MlKem1024.getParameterSet());
 
         // Validate Key Pair Generation
         KeyPair keyPair = validateKeyPairGeneration(fips203MlKem1024);
+
+        // Base64 Encode
+        Base64.Encoder encoder = Base64.getEncoder();
+        String encodedEncapsKey = encoder.encodeToString(keyPair.getEncapsulationKey().getBytes());
+        String encodedDecapsKey = encoder.encodeToString(keyPair.getDecapsulationKey().getBytes());
+        System.out.println("Base64 Encoded EncapsKey Length: " + encodedEncapsKey.length());
+        System.out.println("Base64 Encoded DecapsKey Length: " + encodedDecapsKey.length());
 
         // Validate Encapsulation
         Encapsulation encapsulation = validateEncapsulation(fips203MlKem1024, keyPair.getEncapsulationKey());
@@ -259,6 +266,9 @@ public class FIPS203Tests {
                 keyPair.getDecapsulationKey(),
                 encapsulation.getCipherText()
         );
+
+        String encodedSharedSecretKey = encoder.encodeToString(sharedSecretKey.getBytes());
+        System.out.println("Base64 Encoded SharedSecretKey Length: " + encodedSharedSecretKey.length());
 
         // Validate shared secret was unchanged at the byte level
         assertArrayEquals(encapsulation.getSharedSecretKey().getBytes(), sharedSecretKey.getBytes());
